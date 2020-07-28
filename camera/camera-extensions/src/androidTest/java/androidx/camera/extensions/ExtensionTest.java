@@ -75,6 +75,8 @@ import org.mockito.ArgumentCaptor;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @LargeTest
 @RunWith(Parameterized.class)
@@ -110,14 +112,14 @@ public class ExtensionTest {
         CameraX.initialize(mContext, cameraXConfig).get();
 
         assumeTrue(CameraUtil.hasCameraWithLensFacing(mLensFacing));
-        assumeTrue(ExtensionsTestUtil.initExtensions());
+        assumeTrue(ExtensionsTestUtil.initExtensions(mContext));
         assumeTrue(ExtensionsManager.isExtensionAvailable(mEffectMode, mLensFacing));
         assumeTrue(isTargetDeviceAvailableForExtensions(mLensFacing));
     }
 
     @After
-    public void cleanUp() throws InterruptedException, ExecutionException {
-        CameraX.shutdown().get();
+    public void cleanUp() throws InterruptedException, ExecutionException, TimeoutException {
+        CameraX.shutdown().get(10000, TimeUnit.MILLISECONDS);
     }
 
     @Test

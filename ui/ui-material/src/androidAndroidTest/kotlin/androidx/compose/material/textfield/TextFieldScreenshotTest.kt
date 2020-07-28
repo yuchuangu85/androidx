@@ -26,10 +26,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.Box
 import androidx.compose.foundation.Text
-import androidx.compose.foundation.layout.rtl
 import androidx.compose.material.GOLDEN_MATERIAL
 import androidx.compose.material.TextField
 import androidx.compose.material.setMaterialContent
+import androidx.compose.runtime.Providers
+import androidx.compose.ui.platform.LayoutDirectionAmbient
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.ui.test.captureToBitmap
 import androidx.ui.test.createComposeRule
 import androidx.ui.test.onNodeWithTag
@@ -52,7 +54,7 @@ class TextFieldScreenshotTest {
     val screenshotRule = AndroidXScreenshotTestRule(GOLDEN_MATERIAL)
 
     @Test
-    fun filledTextField_withInput() {
+    fun textField_withInput() {
         composeTestRule.setMaterialContent {
             Box(Modifier.semantics(mergeAllDescendants = true) {}.testTag(TextFieldTag)) {
                 TextField(value = "Text",
@@ -66,7 +68,7 @@ class TextFieldScreenshotTest {
     }
 
     @Test
-    fun filledTextField_notFocused() {
+    fun textField_notFocused() {
         composeTestRule.setMaterialContent {
             Box(Modifier.semantics(mergeAllDescendants = true) {}.testTag(TextFieldTag)) {
                 TextField(value = "",
@@ -80,7 +82,7 @@ class TextFieldScreenshotTest {
     }
 
     @Test
-    fun filledTextField_focused() {
+    fun textField_focused() {
         composeTestRule.setMaterialContent {
             Box(Modifier.semantics(mergeAllDescendants = true) {}.testTag(TextFieldTag)) {
                 TextField(value = "",
@@ -97,13 +99,15 @@ class TextFieldScreenshotTest {
     }
 
     @Test
-    fun filledTextField_focused_rtl() {
+    fun textField_focused_rtl() {
         composeTestRule.setMaterialContent {
-            Box(Modifier.semantics(mergeAllDescendants = true) {}.testTag(TextFieldTag).rtl) {
-                TextField(value = "",
-                    onValueChange = {},
-                    label = { Text("Label") }
-                )
+            Providers(LayoutDirectionAmbient provides LayoutDirection.Rtl) {
+                Box(Modifier.semantics(mergeAllDescendants = true) {}.testTag(TextFieldTag)) {
+                    TextField(value = "",
+                        onValueChange = {},
+                        label = { Text("Label") }
+                    )
+                }
             }
         }
 
