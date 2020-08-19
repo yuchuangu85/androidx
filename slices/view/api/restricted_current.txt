@@ -140,6 +140,7 @@ package androidx.slice.widget {
     method public CharSequence? getContentDescription();
     method public androidx.slice.SliceItem! getContentIntent();
     method public int getImageMode();
+    method public androidx.slice.SliceItem? getOverlayItem();
     method public int getTextCount();
     method public androidx.slice.SliceItem? getTitleItem();
     method public boolean hasImage();
@@ -159,7 +160,7 @@ package androidx.slice.widget {
     method public int getLayoutDir();
     method public static int getListHeight(java.util.List<androidx.slice.widget.SliceContent!>!, androidx.slice.widget.SliceStyle!, androidx.slice.widget.SliceViewPolicy!);
     method public int getRowIndex();
-    method public java.util.ArrayList<androidx.slice.widget.SliceContent!>! getRowItems(int, androidx.slice.widget.SliceStyle!, androidx.slice.widget.SliceViewPolicy!);
+    method public java.util.List<androidx.slice.widget.SliceContent!>! getRowItems(int, androidx.slice.widget.SliceStyle!, androidx.slice.widget.SliceViewPolicy!);
     method public java.util.ArrayList<androidx.slice.widget.SliceContent!> getRowItems();
     method public static int getRowType(androidx.slice.widget.SliceContent!, boolean, java.util.List<androidx.slice.core.SliceAction!>!);
     method public androidx.slice.widget.SliceContent! getSeeMoreItem();

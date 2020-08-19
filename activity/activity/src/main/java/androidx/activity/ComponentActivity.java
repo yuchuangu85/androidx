@@ -105,7 +105,7 @@ public class ComponentActivity extends androidx.core.app.ComponentActivity imple
         ViewModelStore viewModelStore;
     }
 
-    private final ContextAwareHelper mContextAwareHelper = new ContextAwareHelper(this);
+    final ContextAwareHelper mContextAwareHelper = new ContextAwareHelper();
     private final LifecycleRegistry mLifecycleRegistry = new LifecycleRegistry(this);
     @SuppressWarnings("WeakerAccess") /* synthetic access */
     final SavedStateRegistryController mSavedStateRegistryController =
@@ -166,6 +166,7 @@ public class ComponentActivity extends androidx.core.app.ComponentActivity imple
             Bundle optionsBundle = null;
             if (intent.hasExtra(EXTRA_ACTIVITY_OPTIONS_BUNDLE)) {
                 optionsBundle = intent.getBundleExtra(EXTRA_ACTIVITY_OPTIONS_BUNDLE);
+                intent.removeExtra(EXTRA_ACTIVITY_OPTIONS_BUNDLE);
             } else if (options != null) {
                 optionsBundle = options.toBundle();
             }
@@ -250,6 +251,9 @@ public class ComponentActivity extends androidx.core.app.ComponentActivity imple
             public void onStateChanged(@NonNull LifecycleOwner source,
                     @NonNull Lifecycle.Event event) {
                 if (event == Lifecycle.Event.ON_DESTROY) {
+                    // Clear out the available context
+                    mContextAwareHelper.clearAvailableContext();
+                    // And clear the ViewModelStore
                     if (!isChangingConfigurations()) {
                         getViewModelStore().clear();
                     }
@@ -260,14 +264,6 @@ public class ComponentActivity extends androidx.core.app.ComponentActivity imple
         if (19 <= SDK_INT && SDK_INT <= 23) {
             getLifecycle().addObserver(new ImmLeaksCleaner(this));
         }
-
-        addOnContextAvailableListener(new OnContextAvailableListener() {
-            @Override
-            public void onContextAvailable(@NonNull ContextAware contextAware,
-                    @NonNull Context context, @Nullable Bundle savedInstanceState) {
-                mSavedStateRegistryController.performRestore(savedInstanceState);
-            }
-        });
     }
 
     /**
@@ -294,7 +290,10 @@ public class ComponentActivity extends androidx.core.app.ComponentActivity imple
      */
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
-        mContextAwareHelper.dispatchOnContextAvailable(this, savedInstanceState);
+        // Restore the Saved State first so that it is available to
+        // OnContextAvailableListener instances
+        mSavedStateRegistryController.performRestore(savedInstanceState);
+        mContextAwareHelper.dispatchOnContextAvailable(this);
         super.onCreate(savedInstanceState);
         mActivityResultRegistry.onRestoreInstanceState(savedInstanceState);
         ReportFragment.injectIfNeededIn(this);
@@ -410,13 +409,20 @@ public class ComponentActivity extends androidx.core.app.ComponentActivity imple
         ViewTreeSavedStateRegistryOwner.set(getWindow().getDecorView(), this);
     }
 
+    @Nullable
+    @Override
+    public Context peekAvailableContext() {
+        return mContextAwareHelper.peekAvailableContext();
+    }
+
     /**
      * {@inheritDoc}
      *
      * Any listener added here will receive a callback as part of
      * <code>super.onCreate()</code>, but importantly <strong>before</strong> any other
      * logic is done (including calling through to the framework
-     * {@link Activity#onCreate(Bundle)}.
+     * {@link Activity#onCreate(Bundle)} with the exception of restoring the state
+     * of the {@link #getSavedStateRegistry() SavedStateRegistry} for use in your listener.
      */
     @Override
     public final void addOnContextAvailableListener(

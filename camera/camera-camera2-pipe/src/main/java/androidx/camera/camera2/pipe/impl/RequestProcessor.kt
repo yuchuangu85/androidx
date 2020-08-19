@@ -22,7 +22,6 @@ import android.hardware.camera2.CaptureFailure
 import android.hardware.camera2.CaptureRequest
 import android.hardware.camera2.CaptureResult
 import android.hardware.camera2.TotalCaptureResult
-import android.os.Handler
 import android.util.ArrayMap
 import android.view.Surface
 import androidx.camera.camera2.pipe.CameraGraph
@@ -146,7 +145,7 @@ interface RequestProcessor {
 class StandardRequestProcessor(
     private val device: CameraDeviceWrapper,
     private val session: CameraCaptureSessionWrapper,
-    private val handler: Handler?,
+    private val threads: Threads,
     private val graphConfig: CameraGraph.Config,
     private val streamMap: StreamMap,
     private val graphListeners: List<Request.Listener>
@@ -233,7 +232,7 @@ class StandardRequestProcessor(
         val streamToSurfaceMap = ArrayMap<StreamId, Surface>()
 
         for (request in requests) {
-            val requestTemplate = request.template ?: graphConfig.defaultTemplate
+            val requestTemplate = request.template ?: graphConfig.template
 
             // Check to see if there is at least one valid surface for each stream.
             var hasSurface = false
@@ -285,7 +284,7 @@ class StandardRequestProcessor(
                 }
             }
 
-            // Sanity check to make sure we add at least one surface. This should be guaranteed
+            // Soundness check to make sure we add at least one surface. This should be guaranteed
             // because we are supposed to exit early and return false if we cannot map at least one
             // surface per request.
             check(hasSurface)
@@ -369,17 +368,26 @@ class StandardRequestProcessor(
         // behavior on the CaptureSequence listener have been designed to minimize the number of
         // synchronized calls.
         synchronized(lock = captureSequence) {
+            // TODO: Update these calls to use executors on newer versions of the OS
             val sequenceNumber: Int = if (captureRequests.size == 1) {
                 if (isRepeating) {
-                    session.setRepeatingRequest(captureRequests[0], captureSequence, handler)
+                    session.setRepeatingRequest(
+                        captureRequests[0],
+                        captureSequence,
+                        threads.defaultHandler
+                    )
                 } else {
-                    session.capture(captureRequests[0], captureSequence, handler)
+                    session.capture(captureRequests[0], captureSequence, threads.defaultHandler)
                 }
             } else {
                 if (isRepeating) {
-                    session.setRepeatingBurst(captureRequests, captureSequence, handler)
+                    session.setRepeatingBurst(
+                        captureRequests,
+                        captureSequence,
+                        threads.defaultHandler
+                    )
                 } else {
-                    session.captureBurst(captureRequests, captureSequence, handler)
+                    session.captureBurst(captureRequests, captureSequence, threads.defaultHandler)
                 }
             }
             captureSequence.setSequenceId(SequenceNumber(sequenceNumber))

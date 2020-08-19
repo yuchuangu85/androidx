@@ -40,7 +40,7 @@ class ComposeCallLoweringTests : AbstractLoweringTests() {
 
             @Composable
             fun App() {
-                val cond = state { true }
+                val cond = remember { mutableStateOf(true) }
                 val text = if (cond.value) remember { "abc" } else remember { "def" }
                 Button(id=1, text=text, onClick={ cond.value = !cond.value })
             }
@@ -173,6 +173,60 @@ class ComposeCallLoweringTests : AbstractLoweringTests() {
                 a.bam
             }
         """
+        )
+    }
+
+    @Test
+    fun testUnboundSymbolIssue(): Unit = ensureSetup {
+        codegenNoImports(
+            """
+            import androidx.compose.runtime.Composable
+            import androidx.compose.ui.graphics.vector.VectorAsset
+            import androidx.compose.ui.Modifier
+            import androidx.compose.foundation.layout.Row
+
+            class TodoItem
+
+            @Composable
+            fun TodoItemInlineEditor(
+                item: TodoItem,
+                onEditItemChange: (TodoItem) -> Unit,
+                onEditDone: () -> Unit,
+                buttonSlot: @Composable() () -> Unit
+            ) {}
+
+            @Composable
+            fun TodoItemInput(
+                text: String,
+                onTextChange: (String) -> Unit,
+                icon: VectorAsset,
+                onIconChange: (VectorAsset) -> Unit,
+                primaryAction: () -> Unit,
+                iconsVisible: Boolean,
+                modifier: Modifier = Modifier,
+                buttonSlot: @Composable() () -> Unit,
+            ) {}
+
+            @Composable
+            private fun InputTextAndButton(
+                text: String,
+                onTextChange: (String) -> Unit,
+                primaryAction: () -> Unit,
+                buttonSlot: @Composable() () -> Unit,
+                modifier: Modifier = Modifier
+            ) {
+                val currentlyEditing = TodoItem()
+                TodoItemInlineEditor(
+                    item = currentlyEditing,
+                    onEditItemChange = {},
+                    onEditDone = {},
+                    buttonSlot = {
+                        Row {
+                        }
+                    }
+                )
+            }
+            """
         )
     }
 
@@ -568,7 +622,7 @@ fun <T> B(foo: T, bar: String) { }
                     children()
                 }
             """,
-            "SimpleComposable(state=state { 0 })"
+            "SimpleComposable(state=remember { mutableStateOf(0) })"
         ).then { activity ->
             val button = activity.findViewById(42) as Button
             button.performClick()
@@ -592,7 +646,7 @@ fun <T> B(foo: T, bar: String) { }
                 )
             }
         """,
-            "SimpleComposable(state=state { 0 }, value=\"Value\")"
+            "SimpleComposable(state=remember { mutableStateOf(0) }, value=\"Value\")"
         ).then { activity ->
             val button = activity.findViewById(42) as Button
             button.performClick()
@@ -1062,7 +1116,7 @@ fun <T> B(foo: T, bar: String) { }
             @Composable
             fun SimpleComposable() {
                 a++
-                val c = state { 0 }
+                val c = remember { mutableStateOf(0) }
                 val d = remember(c.value) { b++; b }
                 val recompose = invalidate
                 Button(
@@ -1315,7 +1369,7 @@ fun <T> B(foo: T, bar: String) { }
 
             @Composable
             fun Main() {
-                var text = state { "$initialText" }
+                var text = remember { mutableStateOf("$initialText") }
                 Providers(TextAmbient provides text.value) {
                     LinearLayout {
                         ConsumesAmbientFromDefaultParameter()
@@ -1783,11 +1837,11 @@ fun <T> B(foo: T, bar: String) { }
     fun testEffects1(): Unit = ensureSetup {
         compose(
             """
-                import androidx.ui.androidview.adapters.*
+                import androidx.compose.androidview.adapters.*
 
                 @Composable
                 fun Counter() {
-                    var count = state { 0 }
+                    var count = remember { mutableStateOf(0) }
                     TextView(
                         text=("Count: " + count.value),
                         onClick={
@@ -1815,11 +1869,11 @@ fun <T> B(foo: T, bar: String) { }
     fun testEffects2(): Unit = ensureSetup {
         compose(
             """
-                import androidx.ui.androidview.adapters.*
+                import androidx.compose.androidview.adapters.*
 
                 @Composable
                 fun Counter() {
-                    var count = state { 0 }
+                    var count = remember { mutableStateOf(0) }
                     TextView(
                         text=("Count: " + count.value),
                         onClick={
@@ -1848,11 +1902,11 @@ fun <T> B(foo: T, bar: String) { }
         val log = StringBuilder()
         compose(
             """
-                import androidx.ui.androidview.adapters.*
+                import androidx.compose.androidview.adapters.*
 
                 @Composable
                 fun Counter(log: StringBuilder) {
-                    var count = state { 0 }
+                    var count = remember { mutableStateOf(0) }
                     onCommit {
                         log.append("a")
                     }
@@ -1891,7 +1945,7 @@ fun <T> B(foo: T, bar: String) { }
         val log = StringBuilder()
         compose(
             """
-                import androidx.ui.androidview.adapters.*
+                import androidx.compose.androidview.adapters.*
 
                 @Composable
                 fun printer(log: StringBuilder, str: String) {
@@ -1902,7 +1956,7 @@ fun <T> B(foo: T, bar: String) { }
 
                 @Composable
                 fun Counter(log: StringBuilder) {
-                    var count = state { 0 }
+                    var count = remember { mutableStateOf(0) }
                     printer(log, "" + count.value)
                     TextView(
                         text=("Count: " + count.value),
@@ -2060,7 +2114,7 @@ fun <T> B(foo: T, bar: String) { }
 
             @Composable
             fun Reordering() {
-                val items = state { listOf(1, 2, 3, 4, 5) }
+                val items = remember { mutableStateOf(listOf(1, 2, 3, 4, 5)) }
 
                 LinearLayout(orientation=LinearLayout.VERTICAL) {
                     items.value.forEachIndexed { index, id ->
@@ -2081,7 +2135,7 @@ fun <T> B(foo: T, bar: String) { }
 
             @Composable
             private fun Item(id: Int, onMove: (Int) -> Unit) {
-                val count = state { 0 }
+                val count = remember { mutableStateOf(0) }
                 LinearLayout(orientation=LinearLayout.HORIZONTAL) {
                     TextView(id=(id+$tvId), text="id: ${'$'}id amt: ${'$'}{count.value}")
                     Button(id=(id+$btnIdAdd), text="+", onClick={ count.value++ })
@@ -2129,7 +2183,7 @@ fun <T> B(foo: T, bar: String) { }
             """
                 @Composable
                 fun SimpleComposable() {
-                    val count = state { 1 }
+                    val count = remember { mutableStateOf(1) }
                     Box {
                         repeat(count.value) {
                             Button(text="Increment", onClick={ count.value += 1 }, id=(41+it))
@@ -2185,7 +2239,7 @@ fun <T> B(foo: T, bar: String) { }
 
             @Composable
             private fun StatefulButton() {
-                val count = state { 0 }
+                val count = remember { mutableStateOf(0) }
                 Button(text="Clicked ${'$'}{count.value} times!", onClick={ count.value++ })
             }
             """,

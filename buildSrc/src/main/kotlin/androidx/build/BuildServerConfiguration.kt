@@ -27,8 +27,8 @@ import java.io.File
  * distribution directory name.
  */
 fun getBuildId(): String {
-    return if (System.getenv("DIST_DIR") != null) {
-        File(System.getenv("DIST_DIR").removeSuffix("/ui")).name
+    return if (System.getenv("BUILD_NUMBER") != null) {
+        System.getenv("BUILD_NUMBER")
     } else {
         "0"
     }
@@ -59,6 +59,12 @@ fun Project.getRootOutDirectory(): File {
  */
 fun Project.getBuildInfoDirectory(): File =
         File(getDistributionDirectory(), "build-info")
+
+/**
+ * Directory for android test configuration files that get consumed by Tradefed in CI.
+ */
+fun Project.getTestConfigDirectory(): File =
+    File(getDistributionDirectory(), "test-xml-configs")
 
 /**
  * Directory to put release note files for generate release note tasks.

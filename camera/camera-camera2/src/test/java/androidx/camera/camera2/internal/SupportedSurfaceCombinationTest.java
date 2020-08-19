@@ -29,6 +29,7 @@ import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CameraMetadata;
+import android.hardware.camera2.params.StreamConfigurationMap;
 import android.os.Build;
 import android.util.Pair;
 import android.util.Rational;
@@ -93,9 +94,7 @@ import java.util.concurrent.TimeoutException;
 @SmallTest
 @RunWith(RobolectricTestRunner.class)
 @DoNotInstrument
-@Config(minSdk = Build.VERSION_CODES.LOLLIPOP,
-        maxSdk = Build.VERSION_CODES.P //TODO (b/149669465) : Some robolectric tests will fail on Q
-)
+@Config(minSdk = Build.VERSION_CODES.LOLLIPOP)
 public final class SupportedSurfaceCombinationTest {
     private static final String CAMERA_ID = "0";
     private static final int DEFAULT_SENSOR_ORIENTATION = 90;
@@ -1271,11 +1270,12 @@ public final class SupportedSurfaceCombinationTest {
 
         // Unnecessary big enough sizes will be removed from the result list. There is default
         // minimum size 640x480 setting. Sizes smaller than 640x480 will also be removed. The
-        // target resolution will be calibrated by default target rotation 0 degree. The target
-        // resolution will also call setTargetAspectRatioCustom to set matching aspect ratio.
-        // Therefore, sizes of aspect ratio 16/9 will be in front of the returned sizes list and
-        // the list is sorted in descending order. Other items will be put in the following that
-        // are sorted by aspect ratio delta and then area size.
+        // target resolution will be calibrated by default target rotation 0 degree. The
+        // auto-resolution mechanism will try to select the sizes which aspect ratio is nearest
+        // to the aspect ratio of target resolution in priority. Therefore, sizes of aspect ratio
+        // 16/9 will be in front of the returned sizes list and the list is sorted in descending
+        // order. Other items will be put in the following that are sorted by aspect ratio delta
+        // and then area size.
         List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
                 useCase.getUseCaseConfig());
         List<Size> expectedList = Arrays.asList(new Size[]{
@@ -1328,10 +1328,11 @@ public final class SupportedSurfaceCombinationTest {
             });
         } else {
             // The target resolution will be calibrated by default target rotation 0 degree. The
-            // target resolution will also call setTargetAspectRatioCustom to set matching aspect
-            // ratio. Therefore, sizes of aspect ratio 16/9 will be in front of the returned
-            // sizes list and the list is sorted in descending order. Other items will be put in
-            // the following that are sorted by aspect ratio delta and then area size.
+            // auto-resolution mechanism will try to select the sizes which aspect ratio is
+            // nearest to the aspect ratio of target resolution in priority. Therefore, sizes of
+            // aspect ratio 16/9 will be in front of the returned sizes list and the list is
+            // sorted in descending order. Other items will be put in the following that are
+            // sorted by aspect ratio delta and then area size.
             expectedList = Arrays.asList(new Size[]{
                     // Matched AspectRatio items, sorted by area size.
                     new Size(1920, 1080),
@@ -1360,11 +1361,12 @@ public final class SupportedSurfaceCombinationTest {
 
         // Unnecessary big enough sizes will be removed from the result list. There is default
         // minimum size 640x480 setting. Target resolution larger than 640x480 won't overwrite
-        // minimum size setting. Sizes smaller than 640x480 will be removed. The target
-        // resolution will also call setTargetAspectRatioCustom to set matching aspect ratio.
-        // Therefore, sizes of aspect ratio 4/3 will be in front of the returned sizes list and
-        // the list is sorted in descending order. Other items will be put in the following that
-        // are sorted by aspect ratio delta and then area size.
+        // minimum size setting. Sizes smaller than 640x480 will be removed. The auto-resolution
+        // mechanism will try to select the sizes which aspect ratio is nearest to the aspect
+        // ratio of target resolution in priority. Therefore, sizes of aspect ratio 4/3 will be
+        // in front of the returned sizes list and the list is sorted in descending order. Other
+        // items will be put in the following that are sorted by aspect ratio delta and then area
+        // size.
         List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
                 useCase.getUseCaseConfig());
         List<Size> expectedList = Arrays.asList(new Size[]{
@@ -1392,11 +1394,12 @@ public final class SupportedSurfaceCombinationTest {
                 Surface.ROTATION_90).setTargetResolution(new Size(320, 240)).build();
 
         // Unnecessary big enough sizes will be removed from the result list. Minimum size will
-        // be overwritten as 320x240. Sizes smaller than 320x240 will also be removed. The target
-        // resolution will also call setTargetAspectRatioCustom to set matching aspect ratio.
-        // Therefore, sizes of aspect ratio 4/3 will be in front of the returned sizes list and
-        // the list is sorted in descending order. Other items will be put in the following that
-        // are sorted by aspect ratio delta and then area size.
+        // be overwritten as 320x240. Sizes smaller than 320x240 will also be removed. The
+        // auto-resolution mechanism will try to select the sizes which aspect ratio is nearest
+        // to the aspect ratio of target resolution in priority. Therefore, sizes of aspect ratio
+        // 4/3 will be in front of the returned sizes list and the list is sorted in descending
+        // order. Other items will be put in the following that are sorted by aspect ratio delta
+        // and then area size.
         List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
                 useCase.getUseCaseConfig());
         List<Size> expectedList = Arrays.asList(new Size[]{
@@ -1421,78 +1424,10 @@ public final class SupportedSurfaceCombinationTest {
 
         // Unnecessary big enough sizes will be removed from the result list. There is default
         // minimum size 640x480 setting. Sizes smaller than 640x480 will also be removed. The
-        // target resolution will also call setTargetAspectRatioCustom to set matching aspect
-        // ratio. Size 1800x1440 is near to 4/3, therefore, sizes of aspect ratio 4/3 will be in
-        // front of the returned sizes list and the list is sorted in descending order.
-        List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
-                useCase.getUseCaseConfig());
-        List<Size> expectedList = Arrays.asList(new Size[]{
-                // Sizes of 4/3 are near to aspect ratio of 1800/1440
-                new Size(1920, 1440),
-                new Size(1280, 960),
-                new Size(640, 480),
-
-                // Sizes of 16/9 are far to aspect ratio of 1800/1440
-                new Size(3840, 2160),
-                new Size(1920, 1080),
-                new Size(1280, 720),
-                new Size(960, 544),
-                new Size(800, 450)
-        });
-        assertThat(resultList).isEqualTo(expectedList);
-    }
-
-    @Test
-    public void getSupportedOutputSizes_aspectRatioCustom4x3_targetResolution1800x1440NearTo4x3()
-            throws CameraUnavailableException {
-        setupCamera(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED);
-        SupportedSurfaceCombination supportedSurfaceCombination = new SupportedSurfaceCombination(
-                mContext, CAMERA_ID, mMockCamcorderProfileHelper);
-
-        FakeUseCase useCase = new FakeUseCaseConfig.Builder().setTargetAspectRatioCustom(
-                ASPECT_RATIO_4_3).setTargetRotation(Surface.ROTATION_90).setTargetResolution(
-                new Size(1800, 1440)).build();
-
-        // Unnecessary big enough sizes will be removed from the result list. There is default
-        // minimum size 640x480 setting. Sizes smaller than 640x480 will also be removed. The
-        // target resolution will also call setTargetAspectRatioCustom to overwrite original target
-        // aspect ratio. Size 1800x1440 is near to 4/3, therefore, sizes of aspect ratio 4/3 will
-        // be in front of the returned sizes list and the list is sorted in descending order.
-        List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
-                useCase.getUseCaseConfig());
-        List<Size> expectedList = Arrays.asList(new Size[]{
-                // Sizes of 4/3 are near to aspect ratio of 1800/1440
-                new Size(1920, 1440),
-                new Size(1280, 960),
-                new Size(640, 480),
-
-                // Sizes of 16/9 are far to aspect ratio of 1800/1440
-                new Size(3840, 2160),
-                new Size(1920, 1080),
-                new Size(1280, 720),
-                new Size(960, 544),
-                new Size(800, 450)
-        });
-        assertThat(resultList).isEqualTo(expectedList);
-    }
-
-    @Test
-    public void getSupportedOutputSizes_aspectRatioCustom16x9_targetResolution1800x1440NearTo4x3()
-            throws CameraUnavailableException {
-        setupCamera(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED);
-        SupportedSurfaceCombination supportedSurfaceCombination = new SupportedSurfaceCombination(
-                mContext, CAMERA_ID, mMockCamcorderProfileHelper);
-
-        FakeUseCase useCase = new FakeUseCaseConfig.Builder().setTargetAspectRatioCustom(
-                ASPECT_RATIO_16_9).setTargetRotation(Surface.ROTATION_90).setTargetResolution(
-                new Size(1800, 1440)).build();
-
-        // Unnecessary big enough sizes will be removed from the result list. There is default
-        // minimum size 640x480 setting. Sizes smaller than 640x480 will also be removed. The
-        // target resolution will also call setTargetAspectRatioCustom to overwrite original
-        // target aspect ratio. Size 1800x1440 is near to 4/3, therefore, sizes of aspect ratio
-        // 4/3 will be in front of the returned sizes list and the list is sorted in descending
-        // order.
+        // auto-resolution mechanism will try to select the sizes which aspect ratio is nearest
+        // to the aspect ratio of target resolution in priority. Size 1800x1440 is near to 4/3
+        // therefore, sizes of aspect ratio 4/3 will be in front of the returned sizes list and
+        // the list is sorted in descending order.
         List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
                 useCase.getUseCaseConfig());
         List<Size> expectedList = Arrays.asList(new Size[]{
@@ -1523,73 +1458,10 @@ public final class SupportedSurfaceCombinationTest {
 
         // Unnecessary big enough sizes will be removed from the result list. There is default
         // minimum size 640x480 setting. Sizes smaller than 640x480 will also be removed. The
-        // target resolution will also call setTargetAspectRatioCustom to set matching aspect
-        // ratio. Size 1280x600 is near to 16/9, therefore, sizes of aspect ratio 16/9 will be in
-        // front of the returned sizes list and the list is sorted in descending order.
-        List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
-                useCase.getUseCaseConfig());
-        List<Size> expectedList = Arrays.asList(new Size[]{
-                // Sizes of 16/9 are near to aspect ratio of 1280/600
-                new Size(1280, 720),
-                new Size(960, 544),
-                new Size(800, 450),
-
-                // Sizes of 4/3 are far to aspect ratio of 1280/600
-                new Size(1280, 960),
-                new Size(640, 480)
-        });
-        assertThat(resultList).isEqualTo(expectedList);
-    }
-
-    @Test
-    public void getSupportedOutputSizes_aspectRatioCustom16x9_targetResolution1280x600NearTo16x9()
-            throws CameraUnavailableException {
-        setupCamera(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED);
-        SupportedSurfaceCombination supportedSurfaceCombination = new SupportedSurfaceCombination(
-                mContext, CAMERA_ID, mMockCamcorderProfileHelper);
-
-        FakeUseCase useCase = new FakeUseCaseConfig.Builder().setTargetAspectRatioCustom(
-                ASPECT_RATIO_16_9).setTargetRotation(Surface.ROTATION_90).setTargetResolution(
-                new Size(1280, 600)).build();
-
-        // Unnecessary big enough sizes will be removed from the result list. There is default
-        // minimum size 640x480 setting. Sizes smaller than 640x480 will also be removed. The
-        // target resolution will also call setTargetAspectRatioCustom to to overwrite original
-        // target aspect ratio. Size 1280x600 is near to 16/9, therefore, sizes of aspect ratio
-        // 16/9 will be in front of the returned sizes list and the list is sorted in descending
-        // order.
-        List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
-                useCase.getUseCaseConfig());
-        List<Size> expectedList = Arrays.asList(new Size[]{
-                // Sizes of 16/9 are near to aspect ratio of 1280/600
-                new Size(1280, 720),
-                new Size(960, 544),
-                new Size(800, 450),
-
-                // Sizes of 4/3 are far to aspect ratio of 1280/600
-                new Size(1280, 960),
-                new Size(640, 480)
-        });
-        assertThat(resultList).isEqualTo(expectedList);
-    }
-
-    @Test
-    public void getSupportedOutputSizes_aspectRatioCustom4x3_targetResolution1280x600NearTo16x9()
-            throws CameraUnavailableException {
-        setupCamera(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LIMITED);
-        SupportedSurfaceCombination supportedSurfaceCombination = new SupportedSurfaceCombination(
-                mContext, CAMERA_ID, mMockCamcorderProfileHelper);
-
-        FakeUseCase useCase = new FakeUseCaseConfig.Builder().setTargetAspectRatioCustom(
-                ASPECT_RATIO_4_3).setTargetRotation(Surface.ROTATION_90).setTargetResolution(
-                new Size(1280, 600)).build();
-
-        // Unnecessary big enough sizes will be removed from the result list. There is default
-        // minimum size 640x480 setting. Sizes smaller than 640x480 will also be removed. The
-        // target resolution will also call setTargetAspectRatioCustom to to overwrite original
-        // target aspect ratio. Size 1280x600 is near to 16/9, therefore, sizes of aspect ratio
-        // 16/9 will be in front of the returned sizes list and the list is sorted in descending
-        // order.
+        // auto-resolution mechanism will try to select the sizes which aspect ratio is nearest
+        // to the aspect ratio of target resolution in priority. Size 1280x600 is near to 16/9,
+        // therefore, sizes of aspect ratio 16/9 will be in front of the returned sizes list and
+        // the list is sorted in descending order.
         List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
                 useCase.getUseCaseConfig());
         List<Size> expectedList = Arrays.asList(new Size[]{
@@ -1815,11 +1687,12 @@ public final class SupportedSurfaceCombinationTest {
                 Surface.ROTATION_90).build();
 
         // Because the target size 3840x2160 is larger than 640x480, it won't overwrite the
-        // default minimum size 640x480. Sizes smaller than 640x480 will be removed. The target
-        // resolution will also call setTargetAspectRatioCustom to set matching aspect ratio.
-        // Therefore, sizes of aspect ratio 16/9 will be in front of the returned sizes list and
-        // the list is sorted in descending order. Other items will be put in the following that
-        // are sorted by aspect ratio delta and then area size.
+        // default minimum size 640x480. Sizes smaller than 640x480 will be removed. The
+        // auto-resolution mechanism will try to select the sizes which aspect ratio is nearest
+        // to the aspect ratio of target resolution in priority. Therefore, sizes of aspect ratio
+        // 16/9 will be in front of the returned sizes list and the list is sorted in descending
+        // order. Other items will be put in the following that are sorted by aspect ratio delta
+        // and then area size.
         List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
                 useCase.getUseCaseConfig());
         List<Size> expectedList = Arrays.asList(new Size[]{
@@ -1945,6 +1818,45 @@ public final class SupportedSurfaceCombinationTest {
         assertThat(resultList).isEqualTo(expectedList);
     }
 
+    @Test
+    public void getSupportedOutputSizes_whenOneMod16SizeClosestToTargetResolution()
+            throws CameraUnavailableException {
+        setupCamera(CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY, new Size[]{
+                new Size(1920, 1080),
+                new Size(1440, 1080),
+                new Size(1280, 960),
+                new Size(1280, 720),
+                new Size(864, 480), // This is a 16:9 mod16 size that is closest to 2016x1080
+                new Size(768, 432),
+                new Size(640, 480),
+                new Size(640, 360),
+                new Size(480, 360),
+                new Size(384, 288)
+        });
+        SupportedSurfaceCombination supportedSurfaceCombination = new SupportedSurfaceCombination(
+                mContext, CAMERA_ID, mMockCamcorderProfileHelper);
+
+        FakeUseCase useCase = new FakeUseCaseConfig.Builder().setTargetResolution(
+                new Size(1080, 2016)).build();
+
+        Map<UseCaseConfig<?>, Size> suggestedResolutionMap =
+                supportedSurfaceCombination.getSuggestedResolutions(Collections.emptyList(),
+                        Configs.useCaseConfigListFromUseCaseList(Arrays.asList(useCase)));
+
+        List<Size> resultList = supportedSurfaceCombination.getSupportedOutputSizes(
+                useCase.getUseCaseConfig());
+        List<Size> expectedList = Arrays.asList(new Size[]{
+                new Size(1920, 1080),
+                new Size(1280, 720),
+                new Size(864, 480),
+                new Size(768, 432),
+                new Size(1440, 1080),
+                new Size(1280, 960),
+                new Size(640, 480)
+        });
+        assertThat(resultList).isEqualTo(expectedList);
+    }
+
     private void setupCamera(int hardwareLevel) {
         setupCamera(hardwareLevel, mSupportedSizes, null);
     }
@@ -1986,10 +1898,21 @@ public final class SupportedSurfaceCombinationTest {
         int[] supportedFormats = isRawSupported(capabilities)
                 ? mSupportedFormatsWithRaw : mSupportedFormats;
 
-        shadowCharacteristics.set(
-                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP,
-                StreamConfigurationMapUtil.generateFakeStreamConfigurationMap(supportedFormats,
-                        supportedSizes));
+        // Current robolectric can support to directly mock a StreamConfigurationMap object if
+        // the testing platform target is equal to or newer than API level 23. For API level 21
+        // or 22 testing platform target, keep the original method to create a
+        // StreamConfigurationMap object via reflection.
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP_MR1) {
+            shadowCharacteristics.set(
+                    CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP,
+                    StreamConfigurationMapUtil.generateFakeStreamConfigurationMap(supportedFormats,
+                            supportedSizes));
+        } else {
+            StreamConfigurationMap mockMap = mock(StreamConfigurationMap.class);
+            when(mockMap.getOutputSizes(anyInt())).thenReturn(supportedSizes);
+            shadowCharacteristics.set(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP,
+                    mockMap);
+        }
 
         @CameraSelector.LensFacing int lensFacingEnum = CameraUtil.getLensFacingEnumFromInt(
                 CameraCharacteristics.LENS_FACING_BACK);

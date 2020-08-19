@@ -145,6 +145,21 @@ public final class PreviewViewFragmentTest {
     }
 
     @Test
+    public void checkPreviewUpdatesAfterToggleCameraMultipleTimes() {
+        assumeTrue(CameraUtil.hasCameraWithLensFacing(CameraSelector.LENS_FACING_FRONT));
+        assumeTrue(CameraUtil.hasCameraWithLensFacing(CameraSelector.LENS_FACING_BACK));
+
+        final FragmentScenario<PreviewViewFragment> scenario = createScenario();
+        assertPreviewUpdating(scenario);
+
+        for (int i = 0; i <= 10; i++) {
+            onView(withId(R.id.toggle_camera)).perform(click());
+        }
+
+        assertPreviewUpdating(scenario);
+    }
+
+    @Test
     public void checkPreviewNotUpdatedAfterPreviewUnbound() {
         final FragmentScenario<PreviewViewFragment> scenario = createScenario();
         assertPreviewUpdating(scenario);
@@ -186,15 +201,15 @@ public final class PreviewViewFragmentTest {
         final FragmentScenario<PreviewViewFragment> scenario = createScenario();
         assertPreviewUpdating(scenario);
 
-        getPreviewView(scenario).setPreferredImplementationMode(
-                PreviewView.ImplementationMode.TEXTURE_VIEW);
+        getPreviewView(scenario).setImplementationMode(
+                PreviewView.ImplementationMode.COMPATIBLE);
 
         // Stop the fragment
         scenario.moveToState(Lifecycle.State.CREATED);
         // Resume the fragment
         scenario.moveToState(Lifecycle.State.RESUMED);
-        assertThat(getPreviewView(scenario).getPreferredImplementationMode()).isEqualTo(
-                PreviewView.ImplementationMode.TEXTURE_VIEW);
+        assertThat(getPreviewView(scenario).getImplementationMode()).isEqualTo(
+                PreviewView.ImplementationMode.COMPATIBLE);
     }
 
     @NonNull

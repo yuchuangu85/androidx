@@ -51,18 +51,6 @@ def includeProject(name) {
     includeProject(name, null)
 }
 
-def getPlatform() {
-    def osName = System.getProperty("os.name").toLowerCase(Locale.US)
-    def isMacOsX = osName.contains("mac os x") ||
-            osName.contains("darwin") ||
-            osName.contains("osx")
-    return isMacOsX ? "darwin" : "linux"
-}
-
-// Certain projects cannot build on Darwin due to missing NDK
-def includeAppSearchNdkDeps = (getPlatform() != "darwin")
-def includeCameraNdkDeps = (getPlatform() != "darwin")
-
 /////////////////////////////
 //
 // Libraries
@@ -89,12 +77,8 @@ includeProject(":appcompat:appcompat", "appcompat/appcompat")
 includeProject(":appcompat:appcompat-benchmark", "appcompat/appcompat-benchmark")
 includeProject(":appcompat:appcompat-lint", "appcompat/appcompat-lint")
 includeProject(":appcompat:appcompat-resources", "appcompat/appcompat-resources")
-
-if (includeAppSearchNdkDeps) {
-    includeProject(":appsearch:appsearch-annotation", "appsearch/annotation")
-    includeProject(":appsearch:appsearch", "appsearch/appsearch")
-}
-
+includeProject(":appsearch:appsearch", "appsearch/appsearch")
+includeProject(":appsearch:appsearch-compiler", "appsearch/compiler")
 includeProject(":arch:core-common", "arch/core-common")
 includeProject(":arch:core-testing", "arch/core-testing")
 includeProject(":arch:core-runtime", "arch/core-runtime")
@@ -125,33 +109,31 @@ includeProject(":camera:camera-lifecycle", "camera/camera-lifecycle")
 includeProject(":camera:camera-testing", "camera/camera-testing")
 includeProject(":camera:camera-view", "camera/camera-view")
 includeProject(":camera:integration-tests:camera-testapp-camera2-pipe", "camera/integration-tests/camerapipetestapp")
+includeProject(":camera:integration-tests:camera-testapp-core", "camera/integration-tests/coretestapp")
 includeProject(":camera:integration-tests:camera-testapp-extensions", "camera/integration-tests/extensionstestapp")
 includeProject(":camera:integration-tests:camera-testapp-timing", "camera/integration-tests/timingtestapp")
 includeProject(":camera:integration-tests:camera-testapp-uiwidgets", "camera/integration-tests/uiwidgetstestapp")
 includeProject(":camera:integration-tests:camera-testapp-view", "camera/integration-tests/viewtestapp")
 includeProject(":camera:integration-tests:camera-testlib-extensions", "camera/integration-tests/extensionstestlib")
-
-if (includeCameraNdkDeps) {
-    includeProject(":camera:integration-tests:camera-testapp-core", "camera/integration-tests/coretestapp")
-}
-
 includeProject(":cardview:cardview", "cardview/cardview")
 includeProject(":collection:collection", "collection/collection")
 includeProject(":collection:collection-benchmark", "collection/collection-benchmark")
 includeProject(":collection:collection-ktx", "collection/collection-ktx")
 includeProject(":concurrent:concurrent-futures", "concurrent/futures")
 includeProject(":concurrent:concurrent-futures-ktx", "concurrent/futures-ktx")
-includeProject(":contentaccess:contentaccess-runtime", "contentaccess/contentaccess-runtime")
 includeProject(":contentaccess:contentaccess-annotations", "contentaccess/contentaccess-annotations")
 includeProject(":contentaccess:contentaccess-compiler", "contentaccess/contentaccess-compiler")
+includeProject(":contentaccess:contentaccess-entities", "contentaccess/contentaccess-entities")
 includeProject(":contentaccess:integration-tests:testapp",
         "contentaccess/integration-tests/testapp")
+includeProject(":contentaccess:contentaccess-runtime", "contentaccess/contentaccess-runtime")
 includeProject(":contentpager:contentpager", "contentpager/contentpager")
 includeProject(":coordinatorlayout:coordinatorlayout", "coordinatorlayout/coordinatorlayout")
 includeProject(":core:core", "core/core")
 includeProject(":core:core-animation", "core/core-animation")
 includeProject(":core:core-animation-testing", "core/core-animation-testing")
 includeProject(":core:core-animation-integration-tests:testapp", "core/core-animation-integration-tests/testapp")
+includeProject(":core:core-appdigest", "core/core-appdigest")
 includeProject(":core:core-ktx", "core/core-ktx")
 includeProject(":core-role", "core/core-role")
 includeProject(":cursoradapter:cursoradapter", "cursoradapter/cursoradapter")
@@ -203,6 +185,7 @@ includeProject(":lint-checks:tests", "lint-checks/tests")
 includeProject(":leanback:leanback", "leanback/leanback")
 includeProject(":leanback:leanback-paging", "leanback/leanback-paging")
 includeProject(":leanback:leanback-preference", "leanback/leanback-preference")
+includeProject(":leanback:leanback-tab", "leanback/leanback-tab")
 includeProject(":lifecycle:integration-tests:incrementality", "lifecycle/integration-tests/incrementality")
 includeProject(":lifecycle:integration-tests:lifecycle-testapp", "lifecycle/integration-tests/testapp")
 includeProject(":lifecycle:integration-tests:lifecycle-testapp-kotlin", "lifecycle/integration-tests/kotlintestapp")
@@ -285,7 +268,7 @@ includeProject(":room:integration-tests:room-testapp-kotlin", "room/integration-
 includeProject(":room:room-benchmark", "room/benchmark")
 includeProject(":room:room-common", "room/common")
 includeProject(":room:room-compiler", "room/compiler")
-includeProject(":room:room-compiler-xprocessing", "room/compiler-xprocessing")
+includeProject(":room:room-compiler-processing", "room/compiler-processing")
 includeProject(":room:room-guava", "room/guava")
 includeProject(":room:room-ktx", "room/ktx")
 includeProject(":room:room-migration", "room/migration")
@@ -349,8 +332,14 @@ includeProject(":viewpager:viewpager", "viewpager/viewpager")
 includeProject(":viewpager2:viewpager2", "viewpager2/viewpager2")
 includeProject(":viewpager2:integration-tests:testapp", "viewpager2/integration-tests/testapp")
 includeProject(":wear:wear", "wear/wear")
+includeProject(":wear:wear-complications-data", "wear/wear-complications-data")
+includeProject(":wear:wear-complications-rendering", "wear/wear-complications-rendering")
 includeProject(":wear:wear-input", "wear/wear-input")
 includeProject(":wear:wear-input-testing", "wear/wear-input-testing")
+includeProject(":wear:wear-watchface", "wear/wear-watchface")
+includeProject(":wear:wear-watchface-data", "wear/wear-watchface-data")
+includeProject(":wear:wear-watchface-samples", "wear/wear-watchface/samples")
+includeProject(":wear:wear-watchface-style", "wear/wear-watchface-style")
 includeProject(":webkit:webkit", "webkit/webkit")
 includeProject(":webkit:integration-tests:testapp", "webkit/integration-tests/testapp")
 includeProject(":window:window", "window/window")
@@ -365,6 +354,7 @@ includeProject(":work:work-rxjava3", "work/workmanager-rxjava3")
 includeProject(":work:work-testing", "work/workmanager-testing")
 includeProject(":work:work-runtime-lint", "work/workmanager-lint")
 includeProject(":work:work-benchmark", "work/workmanager-benchmark")
+includeProject(":work:work-multiprocess", "work/workmanager-multiprocess")
 includeProject(":work:work-inspection", "work/workmanager-inspection")
 includeProject(":work:integration-tests:testapp", "work/integration-tests/testapp")
 
@@ -441,11 +431,8 @@ includeProject(":support-media2-test-common", "media2/session/version-compat-tes
 apply(from: "include-composite-deps.gradle")
 File externalRoot = new File(rootDir, "../../external")
 
-if (includeAppSearchNdkDeps) {
-    includeProject(":icing", new File(externalRoot, "icing"))
-    includeProject(":icing:nativeLib", new File(externalRoot, "icing/nativeLib"))
-}
-
+includeProject(":icing", new File(externalRoot, "icing"))
+includeProject(":icing:nativeLib", new File(externalRoot, "icing/nativeLib"))
 includeProject(":noto-emoji-compat", new File(externalRoot, "noto-fonts/emoji-compat"))
 
 // fake project which is used for docs generation from prebuilts
@@ -456,9 +443,9 @@ if (!startParameter.projectProperties.containsKey('android.injected.invoked.from
     includeProject(":docs-runner", "docs-runner")
 }
 
-// dumb test project that has a test for each size to ensure that at least one test is run
+// placeholder test project that has a test for each size to ensure that at least one test is run
 // for each size and test runner is happy when there is nothing to test.
-includeProject(":dumb-tests", "dumb-tests")
+includeProject(":placeholder-tests", "placeholder-tests")
 
 
 /////////////////////////////

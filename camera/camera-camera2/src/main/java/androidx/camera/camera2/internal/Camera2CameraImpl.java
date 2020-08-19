@@ -193,6 +193,7 @@ final class Camera2CameraImpl implements CameraInternal {
         mUseCaseAttachState = new UseCaseAttachState(cameraId);
         mObservableState.postValue(State.CLOSED);
         mCaptureSessionRepository = new CaptureSessionRepository(mExecutor);
+        mCaptureSession = new CaptureSession();
 
         try {
             CameraCharacteristics cameraCharacteristics =
@@ -209,8 +210,6 @@ final class Camera2CameraImpl implements CameraInternal {
         mCaptureSessionOpenerBuilder = new SynchronizedCaptureSessionOpener.Builder(mExecutor,
                 executorScheduler, schedulerHandler, mCaptureSessionRepository,
                 mCameraInfoInternal.getSupportedHardwareLevel());
-
-        mCaptureSession = new CaptureSession();
 
         mCameraAvailability = new CameraAvailability(cameraId);
 
@@ -295,14 +294,14 @@ final class Camera2CameraImpl implements CameraInternal {
         }
     }
 
-    // Configure the camera with a dummy capture session in order to clear the
+    // Configure the camera with a no-op capture session in order to clear the
     // previous session. This should be released immediately after being configured.
     @ExecutedBy("mExecutor")
     private void configAndClose(boolean abortInFlightCaptures) {
 
-        final CaptureSession dummySession = new CaptureSession();
+        final CaptureSession noOpSession = new CaptureSession();
 
-        mConfiguringForClose.add(dummySession);  // Make mCameraDevice is not closed and existed.
+        mConfiguringForClose.add(noOpSession);  // Make mCameraDevice is not closed and existed.
         resetCaptureSession(abortInFlightCaptures);
 
         final SurfaceTexture surfaceTexture = new SurfaceTexture(0);
@@ -317,26 +316,26 @@ final class Camera2CameraImpl implements CameraInternal {
         builder.addNonRepeatingSurface(new ImmediateSurface(surface));
         builder.setTemplateType(CameraDevice.TEMPLATE_PREVIEW);
         debugLog("Start configAndClose.");
-        ListenableFuture<Void> openDummyCaptureSession = dummySession.open(builder.build(),
+        ListenableFuture<Void> openNoOpCaptureSession = noOpSession.open(builder.build(),
                 Preconditions.checkNotNull(mCameraDevice), mCaptureSessionOpenerBuilder.build());
-        openDummyCaptureSession.addListener(() -> {
-            // Release the dummy Session and continue closing camera when in correct state.
-            releaseDummySession(dummySession, closeAndCleanupRunner);
+        openNoOpCaptureSession.addListener(() -> {
+            // Release the no-op Session and continue closing camera when in correct state.
+            releaseNoOpSession(noOpSession, closeAndCleanupRunner);
         }, mExecutor);
     }
 
     @SuppressWarnings("WeakerAccess") /* synthetic accessor */
     @ExecutedBy("mExecutor")
-    void releaseDummySession(CaptureSession dummySession, Runnable closeAndCleanupRunner) {
-        // Config complete and remove the dummySession from the mConfiguringForClose map
-        // after resetCaptureSession and before release the dummySession.
-        mConfiguringForClose.remove(dummySession);
+    void releaseNoOpSession(CaptureSession noOpSession, Runnable closeAndCleanupRunner) {
+        // Config complete and remove the noOpSession from the mConfiguringForClose map
+        // after resetCaptureSession and before release the noOpSession.
+        mConfiguringForClose.remove(noOpSession);
 
         // Don't need to abort captures since there are none submitted for this session.
         ListenableFuture<Void> releaseFuture = releaseSession(
-                dummySession, /*abortInFlightCaptures=*/false);
+                noOpSession, /*abortInFlightCaptures=*/false);
 
-        // Add a listener to clear the dummy surfaces
+        // Add a listener to clear the no-op surfaces
         releaseFuture.addListener(closeAndCleanupRunner, CameraXExecutors.directExecutor());
     }
 
@@ -1372,17 +1371,17 @@ final class Camera2CameraImpl implements CameraInternal {
             switch (mState) {
                 case RELEASING:
                 case CLOSING:
-                    Log.e(
-                            TAG,
-                            "CameraDevice.onError(): "
-                                    + cameraDevice.getId()
-                                    + " with error: "
-                                    + getErrorMessage(error));
+                    Log.e(TAG, String.format("CameraDevice.onError(): %s failed with %s while "
+                                    + "in %s state. Will finish closing camera.",
+                                    cameraDevice.getId(), getErrorMessage(error), mState.name()));
                     closeCamera(/*abortInFlightCaptures=*/false);
                     break;
                 case OPENING:
                 case OPENED:
                 case REOPENING:
+                    Log.d(TAG, String.format("CameraDevice.onError(): %s failed with %s while "
+                                    + "in %s state. Will attempt recovering from error.",
+                            cameraDevice.getId(), getErrorMessage(error), mState.name()));
                     handleErrorOnOpen(cameraDevice, error);
                     break;
                 default:
@@ -1405,6 +1404,8 @@ final class Camera2CameraImpl implements CameraInternal {
                 case CameraDevice.StateCallback.ERROR_CAMERA_IN_USE:
                     // Attempt to reopen the camera again. If there are no cameras available,
                     // this will wait for the next available camera.
+                    Log.d(TAG, String.format("Attempt to reopen camera[%s] after error[%s]",
+                            cameraDevice.getId(), getErrorMessage(error)));
                     reopenCameraAfterError();
                     break;
                 default:
@@ -1414,7 +1415,8 @@ final class Camera2CameraImpl implements CameraInternal {
                             "Error observed on open (or opening) camera device "
                                     + cameraDevice.getId()
                                     + ": "
-                                    + getErrorMessage(error));
+                                    + getErrorMessage(error)
+                                    + " closing camera.");
                     setState(InternalState.CLOSING);
                     closeCamera(/*abortInFlightCaptures=*/false);
                     break;

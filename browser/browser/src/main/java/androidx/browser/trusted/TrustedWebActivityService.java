@@ -110,6 +110,12 @@ public abstract class TrustedWebActivityService extends Service {
     public static final String KEY_SMALL_ICON_BITMAP =
             "android.support.customtabs.trusted.SMALL_ICON_BITMAP";
 
+    /**
+     * The key to use to store a boolean in the returns bundle of {@link #onExtraCommand} method,
+     * to indicate whether the command is executed successfully.
+     */
+    public static final String KEY_SUCCESS = "androidx.browser.trusted.SUCCESS";
+
     /** Used as a return value of {@link #onGetSmallIconId} when the icon is not provided. */
     public static final int SMALL_ICON_NOT_SET = -1;
 
@@ -380,10 +386,27 @@ public abstract class TrustedWebActivityService extends Service {
      * A return value of {@code null} will be used to signify that the client does not know how to
      * handle the request.
      *
+     * As optional best practices, {@link #KEY_SUCCESS} could be use to identify
+     * that command was *successfully* handled. For example, when returning a message with result:
+     * <pre><code>
+     *     Bundle result = new Bundle();
+     *     result.putString("message", message);
+     *     if (success)
+     *         result.putBoolean(KEY_SUCCESS, true);
+     *     return result;
+     * </code></pre>
+     * On the caller side:
+     * <pre><code>
+     *     Bundle result = service.extraCommand(commandName, args);
+     *     if (result.getBoolean(service.KEY_SUCCESS)) {
+     *         // Command was successfully handled
+     *     }
+     * </code></pre>
+     *
      * @param commandName    Name of the command to execute.
      * @param args           Arguments to the command.
      * @param callbackRemote Contains the callback that passed with the command.
-     * @return The result {@link Bundle}, or {@code null}.
+     * @return The result {@link Bundle} or {@code null}.
      */
     @BinderThread
     @Nullable

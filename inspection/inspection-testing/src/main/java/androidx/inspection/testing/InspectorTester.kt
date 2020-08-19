@@ -16,6 +16,7 @@
 
 package androidx.inspection.testing
 
+import androidx.inspection.ArtToolInterface
 import androidx.inspection.Connection
 import androidx.inspection.Inspector
 import androidx.inspection.InspectorEnvironment
@@ -136,15 +137,20 @@ internal class CommandCallbackImpl(
  * or create [TestInspectorExecutors] scoped to given job, than those executors will be shutdown
  * once job is complete.
  */
-open class DefaultTestInspectorEnvironment(
-    private val testInspectorExecutors: InspectorExecutors
+class DefaultTestInspectorEnvironment(
+    private val testInspectorExecutors: InspectorExecutors,
+    private val artTooling: ArtToolInterface = DefaultArtToolInterface()
 ) : InspectorEnvironment {
-    constructor(parent: Job) : this(TestInspectorExecutors(parent))
+    override fun artTI() = artTooling
 
+    override fun executors() = testInspectorExecutors
+}
+
+class DefaultArtToolInterface : ArtToolInterface {
     override fun registerEntryHook(
         originClass: Class<*>,
         originMethod: String,
-        entryHook: InspectorEnvironment.EntryHook
+        entryHook: ArtToolInterface.EntryHook
     ) {
         throw UnsupportedOperationException()
     }
@@ -156,12 +162,10 @@ open class DefaultTestInspectorEnvironment(
     override fun <T : Any?> registerExitHook(
         originClass: Class<*>,
         originMethod: String,
-        exitHook: InspectorEnvironment.ExitHook<T>
+        exitHook: ArtToolInterface.ExitHook<T>
     ) {
         throw UnsupportedOperationException()
     }
-
-    override fun executors() = testInspectorExecutors
 }
 
 private class ConnectionImpl(

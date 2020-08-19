@@ -2228,11 +2228,12 @@ class ControlFlowTransformTests : AbstractControlFlowTransformTests() {
     @Test
     fun testApplyOnComposableCallResult(): Unit = controlFlow(
         """
-            import androidx.compose.runtime.state
+            import androidx.compose.runtime.mutableStateOf
+            import androidx.compose.runtime.remember
             import androidx.compose.runtime.State
 
             @Composable
-            fun <T> provided(value: T): State<T> = state { value }.apply {
+            fun <T> provided(value: T): State<T> = remember { mutableStateOf(value) }.apply {
                 this.value = value
             }
         """,
@@ -2240,10 +2241,12 @@ class ControlFlowTransformTests : AbstractControlFlowTransformTests() {
             @Composable
             fun <T> provided(value: T, %composer: Composer<*>?, %key: Int, %changed: Int): State<T> {
               %composer.startReplaceableGroup(<> xor %key, "C(provided):Test.kt")
-              val tmp0 = state(null, {
-                val tmp0_return = value
+              val tmp0 = remember({
+                val tmp0_return = mutableStateOf(
+                  value = value
+                )
                 tmp0_return
-              }, %composer, <>, 0, 0b0001).apply {
+              }, %composer, <>, 0).apply {
                 value = value
               }
               %composer.endReplaceableGroup()
@@ -2255,7 +2258,8 @@ class ControlFlowTransformTests : AbstractControlFlowTransformTests() {
     @Test
     fun testReturnInlinedExpressionWithCall(): Unit = controlFlow(
         """
-            import androidx.compose.runtime.state
+            import androidx.compose.runtime.mutableStateOf
+            import androidx.compose.runtime.remember
             import androidx.compose.runtime.State
 
             @Composable
@@ -3018,6 +3022,44 @@ class ControlFlowTransformTests : AbstractControlFlowTransformTests() {
                 Test(value, %composer, %key, %changed or 0b0001)
               }
             }
+        """
+    )
+
+    @Test
+    fun testSourceOffsetOrderForParameterExpressions(): Unit = verifyComposeIrTransform(
+        source = """
+            import androidx.compose.runtime.Composable
+
+            @Composable
+            fun Test() {
+                A(b(), c(), d())
+                B()
+            }
+        """,
+        extra = """
+            import androidx.compose.runtime.Composable
+
+            @Composable fun A(a: Int, b: Int, c: Int) { }
+            @Composable fun B() { }
+            @Composable fun b(): Int = 1
+            @Composable fun c(): Int = 1
+            @Composable fun d(): Int = 1
+        """,
+        expectedTransformed = """
+            @Composable
+            fun Test(%composer: Composer<*>?, %key: Int, %changed: Int) {
+              %composer.startRestartGroup(<> xor %key, "C(Test)<b()>,<c()>,<d()>,<A(b(),>,<B()>:Test.kt")
+              if (%changed !== 0 || !%composer.skipping) {
+                A(b(%composer, <>, 0), c(%composer, <>, 0), d(%composer, <>, 0), %composer, <>, 0)
+                B(%composer, <>, 0)
+              } else {
+                %composer.skipToGroupEnd()
+              }
+              %composer.endRestartGroup()?.updateScope { %composer: Composer<*>?, %key: Int, %force: Int ->
+                Test(%composer, %key, %changed or 0b0001)
+              }
+            }
+
         """
     )
 }

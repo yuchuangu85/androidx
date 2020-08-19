@@ -84,11 +84,24 @@ const val MOCKITO_CORE = "org.mockito:mockito-core:2.25.0"
 const val MOCKITO_KOTLIN = "com.nhaarman.mockitokotlin2:mockito-kotlin:2.1.0"
 const val MULTIDEX = "androidx.multidex:multidex:2.0.0"
 const val NULLAWAY = "com.uber.nullaway:nullaway:0.3.7"
-const val PLAY_CORE = "com.google.android.play:core:1.7.2"
+const val PLAY_CORE = "com.google.android.play:core:1.8.0"
 const val REACTIVE_STREAMS = "org.reactivestreams:reactive-streams:1.0.0"
 const val RX_JAVA = "io.reactivex.rxjava2:rxjava:2.2.9"
 const val RX_JAVA3 = "io.reactivex.rxjava3:rxjava:3.0.0"
-const val SKIJA = "org.jetbrains.skija:skija:0.4.1"
+const val SKIKO_VERSION = "0.1.2"
+const val SKIKO = "org.jetbrains.skiko:skiko-jvm:$SKIKO_VERSION"
+const val SKIKO_LINUX = "org.jetbrains.skiko:skiko-jvm-runtime-linux:$SKIKO_VERSION"
+const val SKIKO_MACOS = "org.jetbrains.skiko:skiko-jvm-runtime-macos:$SKIKO_VERSION"
+const val SKIKO_WINDOWS = "org.jetbrains.skiko:skiko-jvm-runtime-windows:$SKIKO_VERSION"
+val SKIKO_CURRENT_OS by lazy {
+    val os = System.getProperty("os.name")
+    when {
+        os == "Mac OS X" -> SKIKO_MACOS
+        os.startsWith("Win") -> SKIKO_WINDOWS
+        os.startsWith("Linux") -> SKIKO_LINUX
+        else -> throw Error("Unsupported OS $os")
+    }
+}
 const val TRUTH = "com.google.truth:truth:1.0.1"
 const val XERIAL = "org.xerial:sqlite-jdbc:3.25.2"
 const val XPP3 = "xpp3:xpp3:1.1.4c"
@@ -99,7 +112,7 @@ const val OKHTTP_MOCKWEBSERVER = "com.squareup.okhttp3:mockwebserver:3.14.7"
 const val SQLDELIGHT_ANDROID = "com.squareup.sqldelight:android-driver:1.3.0"
 const val SQLDELIGHT_COROUTINES_EXT = "com.squareup.sqldelight:coroutines-extensions:1.3.0"
 
-const val ROBOLECTRIC = "org.robolectric:robolectric:4.3.1"
+const val ROBOLECTRIC = "org.robolectric:robolectric:4.4-alpha-2"
 
 const val SHADOW_PLUGIN = "com.github.jengelman.gradle.plugins:shadow:5.2.0"
 

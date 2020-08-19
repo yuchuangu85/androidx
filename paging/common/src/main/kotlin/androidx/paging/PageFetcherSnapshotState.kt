@@ -42,9 +42,17 @@ internal class PageFetcherSnapshotState<Key : Any, Value : Any>(
 ) {
     private val _pages = mutableListOf<Page<Key, Value>>()
     internal val pages: List<Page<Key, Value>> = _pages
-    private var initialPageIndex = 0
+    internal var initialPageIndex = 0
+        private set
+
+    internal val storageCount
+        get() = pages.sumBy { it.data.size }
 
     private var _placeholdersBefore = 0
+
+    /**
+     * Always greater than or equal to 0.
+     */
     internal var placeholdersBefore
         get() = when {
             config.enablePlaceholders -> _placeholdersBefore
@@ -58,6 +66,10 @@ internal class PageFetcherSnapshotState<Key : Any, Value : Any>(
         }
 
     private var _placeholdersAfter = 0
+
+    /**
+     * Always greater than or equal to 0.
+     */
     internal var placeholdersAfter
         get() = when {
             config.enablePlaceholders -> _placeholdersAfter
@@ -111,7 +123,7 @@ internal class PageFetcherSnapshotState<Key : Any, Value : Any>(
             PREPEND -> 0 - initialPageIndex
             APPEND -> pages.size - initialPageIndex - 1
         }
-        val pages = listOf(TransformablePage(sourcePageIndex, data, data.size, null))
+        val pages = listOf(TransformablePage(sourcePageIndex, data))
         return when (loadType) {
             REFRESH -> Refresh(
                 pages = pages,
@@ -185,195 +197,98 @@ internal class PageFetcherSnapshotState<Key : Any, Value : Any>(
         return true
     }
 
-    fun drop(loadType: LoadType, pageCount: Int, placeholdersRemaining: Int) {
-        check(pages.size >= pageCount) {
-            "invalid drop count. have ${pages.size} but wanted to drop $pageCount"
+    fun drop(event: PageEvent.Drop<Value>) {
+        check(event.pageCount <= pages.size) {
+            "invalid drop count. have ${pages.size} but wanted to drop ${event.pageCount}"
         }
 
         // Reset load state to NotLoading(endOfPaginationReached = false).
-        failedHintsByLoadType.remove(loadType)
-        loadStates.set(loadType, false, NotLoading.Incomplete)
+        failedHintsByLoadType.remove(event.loadType)
+        loadStates.set(event.loadType, false, NotLoading.Incomplete)
 
-        when (loadType) {
+        when (event.loadType) {
             PREPEND -> {
-                repeat(pageCount) { _pages.removeAt(0) }
-                initialPageIndex -= pageCount
+                repeat(event.pageCount) { _pages.removeAt(0) }
+                initialPageIndex -= event.pageCount
 
-                placeholdersBefore = placeholdersRemaining
+                placeholdersBefore = event.placeholdersRemaining
 
                 prependLoadId++
                 prependLoadIdCh.offer(prependLoadId)
             }
             APPEND -> {
-                repeat(pageCount) { _pages.removeAt(pages.size - 1) }
+                repeat(event.pageCount) { _pages.removeAt(pages.size - 1) }
 
-                placeholdersAfter = placeholdersRemaining
+                placeholdersAfter = event.placeholdersRemaining
 
                 appendLoadId++
                 appendLoadIdCh.offer(appendLoadId)
             }
-            else -> throw IllegalArgumentException("cannot drop $loadType")
+            else -> throw IllegalArgumentException("cannot drop ${event.loadType}")
         }
     }
 
-    suspend fun dropInfo(
-        loadType: LoadType,
-        loadHint: ViewportHint
-    ): DropInfo? {
+    /**
+     * @return [PageEvent.Drop] for [loadType] that would allow this [PageFetcherSnapshotState] to
+     * respect [PagingConfig.maxSize], `null` if no pages should be dropped for the provided
+     * [loadType].
+     */
+    fun dropEventOrNull(loadType: LoadType, hint: ViewportHint): PageEvent.Drop<Value>? {
+        if (config.maxSize == MAX_SIZE_UNBOUNDED) return null
         // Never drop below 2 pages as this can cause UI flickering with certain configs and it's
         // much more important to protect against this behaviour over respecting a config where
         // maxSize is set unusually (probably incorrectly) strict.
         if (pages.size <= 2) return null
 
-        when (loadType) {
-            REFRESH -> throw IllegalArgumentException(
-                "Drop LoadType must be START or END, but got $loadType"
+        if (storageCount <= config.maxSize) return null
+
+        require(loadType != REFRESH) {
+            "Drop LoadType must be PREPEND or APPEND, but got $loadType"
+        }
+
+        // Compute pageCount and itemsToDrop
+        var pagesToDrop = 0
+        var itemsToDrop = 0
+        while (pagesToDrop < pages.size && storageCount - itemsToDrop > config.maxSize) {
+            val pageSize = when (loadType) {
+                PREPEND -> pages[pagesToDrop].data.size
+                else -> pages[pages.lastIndex - pagesToDrop].data.size
+            }
+            val itemsAfterDrop = when (loadType) {
+                PREPEND -> hint.presentedItemsBefore - itemsToDrop - pageSize
+                else -> hint.presentedItemsAfter - itemsToDrop - pageSize
+            }
+            // Do not drop pages that would fulfill prefetchDistance.
+            if (itemsAfterDrop < config.prefetchDistance) break
+
+            itemsToDrop += pageSize
+            pagesToDrop++
+        }
+
+        return when (pagesToDrop) {
+            0 -> null
+            else -> PageEvent.Drop(
+                loadType = loadType,
+                minPageOffset = when (loadType) {
+                    // originalPageOffset of the first page.
+                    PREPEND -> -initialPageIndex
+                    // maxPageOffset - pagesToDrop; We subtract one from pagesToDrop, since this
+                    // value is inclusive.
+                    else -> pages.lastIndex - initialPageIndex - (pagesToDrop - 1)
+                },
+                maxPageOffset = when (loadType) {
+                    // minPageOffset + pagesToDrop; We subtract on from pagesToDrop, since this
+                    // value is inclusive.
+                    PREPEND -> (pagesToDrop - 1) - initialPageIndex
+                    // originalPageOffset of the last page.
+                    else -> pages.lastIndex - initialPageIndex
+                },
+                placeholdersRemaining = when {
+                    !config.enablePlaceholders -> 0
+                    loadType == PREPEND -> placeholdersBefore + itemsToDrop
+                    else -> placeholdersAfter + itemsToDrop
+                }
             )
-            PREPEND -> {
-                // Compute the first pageIndex of the first loaded page fulfilling
-                // prefetchDistance.
-                val prefetchWindowStartPageIndex =
-                    loadHint.withCoercedHint { indexInPage, pageIndex, _ ->
-                        var prefetchWindowStartPageIndex = pageIndex
-                        var prefetchWindowItems = config.prefetchDistance - (indexInPage + 1)
-                        while (prefetchWindowStartPageIndex > 0 && prefetchWindowItems > 0) {
-                            prefetchWindowItems -= pages[prefetchWindowStartPageIndex].data.size
-                            prefetchWindowStartPageIndex--
-                        }
-
-                        prefetchWindowStartPageIndex
-                    }
-
-                // TODO: Incrementally compute this.
-                val currentSize = pages.sumBy { it.data.size }
-                if (
-                    config.maxSize != MAX_SIZE_UNBOUNDED && currentSize > config.maxSize &&
-                    prefetchWindowStartPageIndex > 0
-                ) {
-                    var pageCount = 0
-                    var itemCount = 0
-                    pages.takeWhile {
-                        pageCount++
-                        itemCount += it.data.size
-
-                        currentSize - itemCount > config.maxSize &&
-                                // Do not drop pages that would fulfill prefetchDistance.
-                                pageCount < prefetchWindowStartPageIndex
-                    }
-
-                    val placeholdersRemaining = when {
-                        config.enablePlaceholders -> placeholdersBefore + itemCount
-                        else -> 0
-                    }
-
-                    return DropInfo(pageCount, placeholdersRemaining)
-                }
-            }
-            APPEND -> {
-                // Compute the last pageIndex of the loaded page fulfilling
-                // prefetchDistance.
-                val prefetchWindowEndPageIndex =
-                    loadHint.withCoercedHint { indexInPage, pageIndex, _ ->
-                        var prefetchWindowEndPageIndex = pageIndex
-                        var prefetchWindowItems =
-                            config.prefetchDistance - pages[pageIndex].data.size + indexInPage
-                        while (
-                            prefetchWindowEndPageIndex < pages.lastIndex &&
-                            prefetchWindowItems > 0
-                        ) {
-                            prefetchWindowItems -= pages[prefetchWindowEndPageIndex].data.size
-                            prefetchWindowEndPageIndex++
-                        }
-
-                        prefetchWindowEndPageIndex
-                    }
-
-                // TODO: Incrementally compute this.
-                val currentSize = pages.sumBy { it.data.size }
-                if (
-                    config.maxSize != MAX_SIZE_UNBOUNDED && currentSize > config.maxSize &&
-                    prefetchWindowEndPageIndex < pages.lastIndex
-                ) {
-                    var pageCount = 0
-                    var itemCount = 0
-                    pages.takeLastWhile {
-                        pageCount++
-                        itemCount += it.data.size
-
-                        currentSize - itemCount > config.maxSize &&
-                                // Do not drop pages that would fulfill prefetchDistance.
-                                pages.lastIndex - pageCount > prefetchWindowEndPageIndex
-                    }
-
-                    val placeholdersRemaining = when {
-                        config.enablePlaceholders -> placeholdersAfter + itemCount
-                        else -> 0
-                    }
-
-                    return DropInfo(pageCount, placeholdersRemaining)
-                }
-            }
         }
-
-        return null
-    }
-
-    /**
-     * Calls the specified [block] with a [ViewportHint] that has been coerced with respect to the
-     * current state of [pages].
-     *
-     * The follow parameters are provided into the specified [block]:
-     * * indexInPage - Coerced from [ViewportHint.indexInPage], the index within page specified by
-     * pageIndex. If the page specified by [ViewportHint.sourcePageIndex] cannot fulfill the
-     * specified indexInPage, pageIndex will be incremented to a valid value and indexInPage will
-     * be decremented.
-     * * pageIndex - See the description for indexInPage, index in [pages] coerced from
-     * [ViewportHint.sourcePageIndex]
-     * * hintOffset - The numbers of items the hint was snapped by when coercing within the
-     * bounds of loaded pages.
-     *
-     * Note: If an invalid / out-of-date sourcePageIndex is passed, it will be coerced to the
-     * closest pageIndex within the range of [pages]
-     */
-    internal suspend fun <T> ViewportHint.withCoercedHint(
-        block: suspend (indexInPage: Int, pageIndex: Int, hintOffset: Int) -> T
-    ): T {
-        if (pages.isEmpty()) {
-            throw IllegalStateException("Cannot coerce hint when no pages have loaded")
-        }
-
-        var indexInPage = indexInPage
-        var pageIndex = sourcePageIndex + initialPageIndex
-        var hintOffset = 0
-
-        // Coerce pageIndex to >= 0, snap indexInPage to 0 if pageIndex is coerced.
-        if (pageIndex < 0) {
-            hintOffset = pageIndex * config.pageSize + indexInPage
-
-            pageIndex = 0
-            indexInPage = 0
-        } else if (pageIndex > pages.lastIndex) {
-            // Number of items after last loaded item that this hint refers to.
-            hintOffset = (pageIndex - pages.lastIndex - 1) * config.pageSize + indexInPage + 1
-
-            pageIndex = pages.lastIndex
-            indexInPage = pages.last().data.lastIndex
-        } else {
-            if (indexInPage !in pages[pageIndex].data.indices) {
-                hintOffset = indexInPage
-            }
-
-            // Reduce indexInPage by incrementing pageIndex while indexInPage is outside the bounds
-            // of the page referenced by pageIndex.
-            while (pageIndex < pages.lastIndex && indexInPage > pages[pageIndex].data.lastIndex) {
-                hintOffset -= pages[pageIndex].data.size
-                indexInPage -= pages[pageIndex].data.size
-                pageIndex++
-            }
-        }
-
-        return block(indexInPage, pageIndex, hintOffset)
     }
 }
-
-internal class DropInfo(val pageCount: Int, val placeholdersRemaining: Int)

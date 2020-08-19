@@ -375,29 +375,27 @@ public class NotificationCompatTest extends BaseInstrumentationTestCase<TestActi
 
     @SdkSuppress(minSdkVersion = 19)
     @Test
-    public void testRecoverBuilder_fromMinimalPlatform() {
+    public void testBuilderFromNotification_fromMinimalPlatform() {
         Notification original = new Notification.Builder(mContext).build();
-        Notification recovered = NotificationCompat.Builder.recoverBuilder(mContext, original)
-                .build();
+        Notification recovered = new NotificationCompat.Builder(mContext, original).build();
         assertEquals(original.toString(), recovered.toString());
     }
 
     @SdkSuppress(minSdkVersion = 19)
     @Test
-    public void testRecoverBuilder_fromSimpleCompat() {
+    public void testBuilderFromNotification_fromSimpleCompat() {
         Notification original = new NotificationCompat.Builder(mContext, "channelId")
                 .setContentTitle("contentTitle")
                 .setContentText("contentText")
                 .setNumber(3)
                 .build();
-        Notification recovered = NotificationCompat.Builder.recoverBuilder(mContext, original)
-                .build();
+        Notification recovered = new NotificationCompat.Builder(mContext, original).build();
         assertNotificationEquals(original, recovered);
     }
 
     @SdkSuppress(minSdkVersion = 19)
     @Test
-    public void testRecoverBuilder_fromMessagingStyledCompat() {
+    public void testBuilderFromNotification_fromMessagingStyledCompat() {
         Person person1 = new Person.Builder()
                 .setName("personName1")
                 .setBot(true)
@@ -427,8 +425,7 @@ public class NotificationCompatTest extends BaseInstrumentationTestCase<TestActi
                 .addPerson(person2)
                 .addExtras(testBundle)
                 .build();
-        Notification recovered = NotificationCompat.Builder.recoverBuilder(mContext, original)
-                .build();
+        Notification recovered = new NotificationCompat.Builder(mContext, original).build();
         assertNotificationEquals(original, recovered);
     }
 
@@ -834,7 +831,7 @@ public class NotificationCompatTest extends BaseInstrumentationTestCase<TestActi
     public void testNotificationSmallIcon() {
         IconCompat icon = IconCompat.createWithResource(mContext,
                 R.drawable.notification_action_background);
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(mContext, null);
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(mContext);
 
         builder.setSmallIcon(icon);
 
@@ -966,7 +963,7 @@ public class NotificationCompatTest extends BaseInstrumentationTestCase<TestActi
                 .setDefaults(DEFAULT_ALL)
                 .setGroupSummary(true)
                 .setTicker("summary")
-                .setNotificationSilent()
+                .setSilent(true)
                 .build();
 
         Notification nChild = new NotificationCompat.Builder(mActivityTestRule.getActivity())
@@ -975,7 +972,16 @@ public class NotificationCompatTest extends BaseInstrumentationTestCase<TestActi
                 .setDefaults(DEFAULT_ALL)
                 .setGroupSummary(false)
                 .setTicker("child")
+                .setSilent(true)
+                .build();
+
+        Notification nNoisy = new NotificationCompat.Builder(mActivityTestRule.getActivity())
+                .setVibrate(new long[]{235})
+                .setSound(Uri.EMPTY)
+                .setDefaults(DEFAULT_ALL)
+                .setTicker("noisy")
                 .setNotificationSilent()
+                .setSilent(false)
                 .build();
 
         if (Build.VERSION.SDK_INT >= 20 && !(Build.VERSION.SDK_INT >= 26)) {
@@ -990,16 +996,25 @@ public class NotificationCompatTest extends BaseInstrumentationTestCase<TestActi
             assertTrue((nChild.defaults & DEFAULT_LIGHTS) != 0);
             assertTrue((nChild.defaults & DEFAULT_SOUND) == 0);
             assertTrue((nChild.defaults & DEFAULT_VIBRATE) == 0);
+
+            assertNotNull(nNoisy.sound);
+            assertNotNull(nNoisy.vibrate);
+            assertTrue((nNoisy.defaults & DEFAULT_LIGHTS) != 0);
+            assertTrue((nNoisy.defaults & DEFAULT_SOUND) != 0);
+            assertTrue((nNoisy.defaults & DEFAULT_VIBRATE) != 0);
         }
 
         if (Build.VERSION.SDK_INT >= 26) {
             assertEquals(GROUP_ALERT_SUMMARY, nChild.getGroupAlertBehavior());
             assertEquals(GROUP_ALERT_CHILDREN, nSummary.getGroupAlertBehavior());
+            assertEquals(GROUP_ALERT_ALL, nNoisy.getGroupAlertBehavior());
             assertEquals(GROUP_KEY_SILENT, nChild.getGroup());
             assertEquals(GROUP_KEY_SILENT, nSummary.getGroup());
+            assertNull(nNoisy.getGroup());
         } else if (Build.VERSION.SDK_INT >= 20) {
             assertNull(nChild.getGroup());
             assertNull(nSummary.getGroup());
+            assertNull(nNoisy.getGroup());
         }
     }
 

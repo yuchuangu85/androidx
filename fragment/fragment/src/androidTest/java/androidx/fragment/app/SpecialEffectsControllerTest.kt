@@ -304,8 +304,10 @@ class SpecialEffectsControllerTest {
             assertThat(controller.getAwaitingCompletionLifecycleImpact(fragmentStateManager))
                 .isEqualTo(SpecialEffectsController.Operation.LifecycleImpact.ADDING)
 
-            // Now force all operations to immediately complete
-            controller.forceCompleteAllOperations()
+            onActivity {
+                // Now force all operations to immediately complete
+                controller.forceCompleteAllOperations()
+            }
 
             assertThat(controller.operationsToExecute)
                 .isEmpty()
@@ -353,11 +355,20 @@ class SpecialEffectsControllerTest {
             assertThat(controller.getAwaitingCompletionLifecycleImpact(fragmentStateManager))
                 .isEqualTo(SpecialEffectsController.Operation.LifecycleImpact.ADDING)
 
-            // Now force all operations to immediately complete
-            controller.forceCompleteAllOperations()
+            var lifecycleImpactOnCompletion:
+                    SpecialEffectsController.Operation.LifecycleImpact? = null
+            firstOperation.addCompletionListener {
+                lifecycleImpactOnCompletion = controller.getAwaitingCompletionLifecycleImpact(
+                    fragmentStateManager)
+            }
+            onActivity {
+                // Now force all operations to immediately complete
+                controller.forceCompleteAllOperations()
+            }
 
             assertThat(firstOperation.cancellationSignal.isCanceled)
                 .isTrue()
+            assertThat(lifecycleImpactOnCompletion).isNull()
             assertThat(controller.operationsToExecute)
                 .isEmpty()
             assertThat(controller.getAwaitingCompletionLifecycleImpact(fragmentStateManager))
@@ -416,6 +427,11 @@ class SpecialEffectsControllerTest {
 
             onActivity {
                 fragment.startPostponedEnterTransition()
+            }
+            onActivity {
+                // When USE_STATE_MANAGER is true, this second onActivity is enough
+                // to handle the post() that startPostponedEnterTransition() does.
+                // Otherwise, we need to do a little more work at this point
                 if (!FragmentManager.USE_STATE_MANAGER) {
                     // These are called automatically when USE_STATE_MANAGER is true
                     // but we need to call them manually if it is false

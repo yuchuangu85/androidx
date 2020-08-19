@@ -8,7 +8,10 @@ The Android team has been exploring how we could make it easier to develop libra
 
 ### What can you contribute to?
 
-You can start contributing to [Room](https://developer.android.com/topic/libraries/architecture/room) and [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager) from GitHub!
+You can start contributing to any of the following library groups from GitHub:
+  - [Paging](https://developer.android.com/topic/libraries/architecture/paging)
+  - [Room](https://developer.android.com/topic/libraries/architecture/room)
+  - [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager)
 
 Our tooling currently supports **macOS and Linux**. This new setup is a **work-in-progress**, so it might have some rough edges. Please bear with us while we streamline this workflow.
 
@@ -36,6 +39,7 @@ The list of folders that can be contributed to, using the GitHub repository are:
 
 ```
 androidx
+  -- paging
   -- room
   -- work
 ```
@@ -101,6 +105,8 @@ Once your changes look good, you can push them to your fork of the repository. N
 If you are adding new APIs, then you might **additionally need to update** [LibraryVersions.kt](https://github.com/AndroidX/androidx/blob/androidx-master-dev/buildSrc/src/main/kotlin/androidx/build/LibraryVersions.kt) as well, before running the updateApi task. This is **relevant when the library’s API is frozen** (betas, rc’s and stable versions). For alpha versions, you don’t have to update this file.
 
 This helps the AndroidX project keep track of API changes and avoid inadvertently adding APIs or introduce backwards incompatible changes.
+
+**Note:** In case you make a valid violation of Lint, you can use `@Suppress("Rule")` in Kotlin, or `@SuppressLint("Rule")` in Java to suppress the rule.
 
 **Note: CI build will already check for these but it is best to run them locally to speedup the process.**
 

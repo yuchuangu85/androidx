@@ -319,17 +319,22 @@ class CachingTest {
                 })
                 loadedPageCount += it.pages.size
                 if (items.size < expectedSize) {
-                    receiver.addHint(
+                    receiver.accessHint(
                         ViewportHint(
-                            sourcePageIndex = loadedPageCount - 1,
-                            indexInPage = it.pages.last().data.size - 1
+                            pageOffset = loadedPageCount - 1,
+                            indexInPage = it.pages.last().data.size - 1,
+                            presentedItemsBefore = 0,
+                            presentedItemsAfter = 0,
+                            originalPageOffsetFirst = it.pages.first().originalPageOffsets.min()!!,
+                            originalPageOffsetLast = it.pages.last().originalPageOffsets.max()!!
                         )
                     )
                 } else {
                     throw AbortCollectionException()
                 }
-            }.catch {
-            }.toList()
+            }
+            .catch { }
+            .toList()
         return items
     }
 

@@ -19,6 +19,7 @@ package androidx.camera.core
 import android.content.Context
 import android.graphics.Rect
 import android.os.Build
+import android.os.Looper.getMainLooper
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
@@ -40,6 +41,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.internal.DoNotInstrument
+import org.robolectric.Shadows.shadowOf
 import java.util.Collections
 import java.util.concurrent.ExecutionException
 
@@ -115,6 +117,33 @@ class PreviewTest {
 
         // Assert: target rotation is updated.
         assertThat(preview.targetRotation).isEqualTo(Surface.ROTATION_180)
+    }
+
+    @Test
+    fun setSurfaceProviderAfterAttachment_receivesSurfaceRequest() {
+        // Arrange: attach Preview without a SurfaceProvider.
+        val preview = Preview.Builder().setTargetRotation(Surface.ROTATION_0).build()
+        val cameraUseCaseAdapter = CameraUtil.getCameraUseCaseAdapter(
+            ApplicationProvider
+                .getApplicationContext<Context>(), CameraSelector.DEFAULT_BACK_CAMERA
+        )
+        cameraUseCaseAdapter.addUseCases(Collections.singleton<UseCase>(preview))
+
+        // Unsent pending SurfaceRequest created by pipeline.
+        val pendingSurfaceRequest = preview.mPendingSurfaceRequest
+        var receivedSurfaceRequest: SurfaceRequest? = null
+
+        // Act: set a SurfaceProvider after attachment.
+        preview.setSurfaceProvider { receivedSurfaceRequest = it }
+        shadowOf(getMainLooper()).idle()
+        // Assert: received a SurfaceRequest.
+        assertThat(receivedSurfaceRequest).isSameInstanceAs(pendingSurfaceRequest)
+
+        // Act: set a different SurfaceProvider.
+        preview.setSurfaceProvider { receivedSurfaceRequest = it }
+        shadowOf(getMainLooper()).idle()
+        // Assert: received a different SurfaceRequest.
+        assertThat(receivedSurfaceRequest).isNotSameInstanceAs(pendingSurfaceRequest)
     }
 
     private fun bindToLifecycleAndGetSurfaceRequest(): SurfaceRequest {

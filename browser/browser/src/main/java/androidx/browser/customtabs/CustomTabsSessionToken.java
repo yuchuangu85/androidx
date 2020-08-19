@@ -141,6 +141,7 @@ public class CustomTabsSessionToken {
             }
 
             @SuppressWarnings("NullAway")  // TODO: b/142938599
+            @NonNull
             @Override
             public Bundle extraCallbackWithResult(@NonNull String callbackName,
                     @Nullable Bundle args) {

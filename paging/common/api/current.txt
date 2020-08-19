@@ -86,6 +86,16 @@ package androidx.paging {
     field @Deprecated public final int requestedLoadSize;
   }
 
+  public final class ItemSnapshotList<T> extends kotlin.collections.AbstractList<T> {
+    ctor public ItemSnapshotList(@IntRange(from=0) int placeholdersBefore, @IntRange(from=0) int placeholdersAfter, java.util.List<? extends T> items);
+    method public T? get(int index);
+    method public java.util.List<T> getItems();
+    method public int getPlaceholdersAfter();
+    method public int getPlaceholdersBefore();
+    method public int getSize();
+    property public int size;
+  }
+
   public abstract sealed class LoadState {
     method public final boolean getEndOfPaginationReached();
   }
@@ -120,9 +130,6 @@ package androidx.paging {
     enum_constant public static final androidx.paging.LoadType APPEND;
     enum_constant public static final androidx.paging.LoadType PREPEND;
     enum_constant public static final androidx.paging.LoadType REFRESH;
-  }
-
-  public final class PageEventKt {
   }
 
   @Deprecated public abstract class PageKeyedDataSource<Key, Value> extends androidx.paging.DataSource<Key,Value> {
@@ -250,11 +257,11 @@ package androidx.paging {
   }
 
   public final class PagingConfig {
-    ctor public PagingConfig(int pageSize, @IntRange(from=null) int prefetchDistance, boolean enablePlaceholders, @IntRange(from=null) int initialLoadSize, @IntRange(from=null) int maxSize, int jumpThreshold);
-    ctor public PagingConfig(int pageSize, @IntRange(from=null) int prefetchDistance, boolean enablePlaceholders, @IntRange(from=null) int initialLoadSize, @IntRange(from=null) int maxSize);
-    ctor public PagingConfig(int pageSize, @IntRange(from=null) int prefetchDistance, boolean enablePlaceholders, @IntRange(from=null) int initialLoadSize);
-    ctor public PagingConfig(int pageSize, @IntRange(from=null) int prefetchDistance, boolean enablePlaceholders);
-    ctor public PagingConfig(int pageSize, @IntRange(from=null) int prefetchDistance);
+    ctor public PagingConfig(int pageSize, @IntRange(from=0) int prefetchDistance, boolean enablePlaceholders, @IntRange(from=1) int initialLoadSize, @IntRange(from=2) int maxSize, int jumpThreshold);
+    ctor public PagingConfig(int pageSize, @IntRange(from=0) int prefetchDistance, boolean enablePlaceholders, @IntRange(from=1) int initialLoadSize, @IntRange(from=2) int maxSize);
+    ctor public PagingConfig(int pageSize, @IntRange(from=0) int prefetchDistance, boolean enablePlaceholders, @IntRange(from=1) int initialLoadSize);
+    ctor public PagingConfig(int pageSize, @IntRange(from=0) int prefetchDistance, boolean enablePlaceholders);
+    ctor public PagingConfig(int pageSize, @IntRange(from=0) int prefetchDistance);
     ctor public PagingConfig(int pageSize);
     field public static final androidx.paging.PagingConfig.Companion Companion;
     field public static final int MAX_SIZE_UNBOUNDED = 2147483647; // 0x7fffffff
@@ -342,7 +349,7 @@ package androidx.paging {
   }
 
   public static final class PagingSource.LoadResult.Page<Key, Value> extends androidx.paging.PagingSource.LoadResult<Key,Value> {
-    ctor public PagingSource.LoadResult.Page(java.util.List<? extends Value> data, Key? prevKey, Key? nextKey, @IntRange(from=null) int itemsBefore, @IntRange(from=null) int itemsAfter);
+    ctor public PagingSource.LoadResult.Page(java.util.List<? extends Value> data, Key? prevKey, Key? nextKey, @IntRange(from=COUNT_UNDEFINED.toLong()) int itemsBefore, @IntRange(from=COUNT_UNDEFINED.toLong()) int itemsAfter);
     ctor public PagingSource.LoadResult.Page(java.util.List<? extends Value> data, Key? prevKey, Key? nextKey);
     method public java.util.List<Value> component1();
     method public Key? component2();
@@ -366,7 +373,7 @@ package androidx.paging {
   }
 
   public final class PagingState<Key, Value> {
-    ctor public PagingState(java.util.List<androidx.paging.PagingSource.LoadResult.Page<Key,Value>> pages, Integer? anchorPosition, androidx.paging.PagingConfig config, @IntRange(from=null) int leadingPlaceholderCount);
+    ctor public PagingState(java.util.List<androidx.paging.PagingSource.LoadResult.Page<Key,Value>> pages, Integer? anchorPosition, androidx.paging.PagingConfig config, @IntRange(from=0) int leadingPlaceholderCount);
     method public Value? closestItemToPosition(int anchorPosition);
     method public androidx.paging.PagingSource.LoadResult.Page<Key,Value>? closestPageToPosition(int anchorPosition);
     method public Value? firstItemOrNull();

@@ -17,9 +17,7 @@
 package androidx.sqlite.inspection
 
 import android.database.sqlite.SQLiteDatabase
-import androidx.inspection.Connection
-import androidx.inspection.InspectorEnvironment
-import androidx.inspection.InspectorFactory
+import androidx.inspection.ArtToolInterface
 import androidx.inspection.testing.DefaultTestInspectorEnvironment
 import androidx.inspection.testing.InspectorTester
 import androidx.inspection.testing.TestInspectorExecutors
@@ -48,7 +46,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.Executors
 
 @ExperimentalCoroutinesApi
 @RunWith(AndroidJUnit4::class)
@@ -79,8 +76,14 @@ class SqlDelightInvalidationTest {
             val sqliteDb = openedDb.getSqliteDb()
             val query = dao.selectAll()
             val job = this.coroutineContext[Job]!!
-            val tester = sqliteInspectorTester(TestInspectorEnvironment(sqliteDb, listOf(query),
-                job))
+            val tester = InspectorTester(
+                inspectorId = "androidx.sqlite.inspection",
+                environment =
+                    DefaultTestInspectorEnvironment(
+                        TestInspectorExecutors(job),
+                        TestArtToolInterface(sqliteDb, listOf(query))
+                    )
+            )
             val updates = query.asFlow().mapToList().take(2).produceIn(this)
 
             val firstExpected = TestEntity.Impl(1, "one")
@@ -133,34 +136,15 @@ private fun SupportSQLiteDatabase.getSqliteDb(): SQLiteDatabase {
     } as SQLiteDatabase
 }
 
-suspend fun sqliteInspectorTester(environment: InspectorEnvironment) = InspectorTester(
-    inspectorId = "test",
-    environment = environment,
-    factoryOverride = object : InspectorFactory<SqliteInspector>("test") {
-        override fun createInspector(
-            connection: Connection,
-            environment: InspectorEnvironment
-        ): SqliteInspector {
-            return SqliteInspector(
-                connection,
-                environment,
-                Executors.newSingleThreadExecutor(),
-                Executors.newSingleThreadScheduledExecutor()
-            )
-        }
-    }
-)
-
 @Suppress("UNCHECKED_CAST")
-class TestInspectorEnvironment(
+class TestArtToolInterface(
     private val sqliteDb: SQLiteDatabase,
-    private val queries: List<Query<*>>,
-    job: Job
-) : DefaultTestInspectorEnvironment(TestInspectorExecutors(job)) {
+    private val queries: List<Query<*>>
+) : ArtToolInterface {
     override fun registerEntryHook(
         originClass: Class<*>,
         originMethod: String,
-        entryHook: InspectorEnvironment.EntryHook
+        entryHook: ArtToolInterface.EntryHook
     ) {
         // no-op
     }
@@ -177,7 +161,7 @@ class TestInspectorEnvironment(
     override fun <T : Any?> registerExitHook(
         originClass: Class<*>,
         originMethod: String,
-        exitHook: InspectorEnvironment.ExitHook<T>
+        exitHook: ArtToolInterface.ExitHook<T>
     ) {
         // no-op
     }

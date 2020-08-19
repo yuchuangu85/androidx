@@ -40,6 +40,7 @@ import android.util.Log;
 import android.view.Display;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RestrictTo;
@@ -621,9 +622,16 @@ public final class MediaRouter {
      *     // addCallback() again in order to tell the media router that it no longer
      *     // needs to invest effort trying to discover routes of these kinds for now.
      *     public void onStop() {
-     *         super.onStop();
-     *
      *         mRouter.addCallback(mSelector, mCallback, &#47;* flags= *&#47; 0);
+     *
+     *         super.onStop();
+     *     }
+     *
+     *     // Remove the callback when the activity is destroyed.
+     *     public void onDestroy() {
+     *         mRouter.removeCallback(mCallback);
+     *
+     *         super.onDestroy();
      *     }
      *
      *     private final class MyCallback extends MediaRouter.Callback {
@@ -717,6 +725,7 @@ public final class MediaRouter {
     /**
      * Sets a listener for receiving events when the selected route is about to be changed.
      */
+    @MainThread
     public void setOnPrepareTransferListener(@Nullable OnPrepareTransferListener listener) {
         checkCallingThread();
         sGlobal.mOnPrepareTransferListener = listener;
@@ -868,7 +877,6 @@ public final class MediaRouter {
 
     /**
      * Ensures that calls into the media router are on the correct thread.
-     * It pays to be a little paranoid when global state invariants are at risk.
      */
     static void checkCallingThread() {
         if (Looper.myLooper() != Looper.getMainLooper()) {
@@ -2230,6 +2238,7 @@ public final class MediaRouter {
          * the media continues to be played on the previous route.
          */
         @Nullable
+        @MainThread
         ListenableFuture<Void> onPrepareTransfer(@NonNull RouteInfo fromRoute,
                 @NonNull RouteInfo toRoute);
     }

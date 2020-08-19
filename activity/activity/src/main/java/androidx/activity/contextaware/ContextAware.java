@@ -16,10 +16,13 @@
 
 package androidx.activity.contextaware;
 
+import android.content.Context;
+
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 /**
- * A <code>ContextAware</code> class is associated with a {@link android.content.Context} as
+ * A <code>ContextAware</code> class is associated with a {@link Context} as
  * a part of its lifecycle.
  *
  * @see ContextAwareHelper
@@ -27,11 +30,23 @@ import androidx.annotation.NonNull;
 public interface ContextAware {
 
     /**
+     * Get the {@link Context} if it is currently available. If this returns
+     * <code>null</code>, you can use
+     * {@link #addOnContextAvailableListener(OnContextAvailableListener)} to receive
+     * a callback for when it available.
+     *
+     * @return the Context if it is currently available.
+     */
+    @Nullable
+    Context peekAvailableContext();
+
+    /**
      * Add a new {@link OnContextAvailableListener} for receiving a callback for when
      * this class is associated with a {@link android.content.Context}.
      * <p>
-     * This will only receive a callback when associated with a new Context: no callback
-     * will be triggered if this is already associated with a Context.
+     * Listeners are triggered in the order they are added when added before the Context is
+     * available. Listeners added after the context has been made available will have the Context
+     * synchronously delivered to them as part of this call.
      *
      * @param listener The listener that should be added.
      * @see #removeOnContextAvailableListener(OnContextAvailableListener)

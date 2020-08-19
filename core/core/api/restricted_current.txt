@@ -223,6 +223,8 @@ package androidx.core.app {
   }
 
   public class NotificationChannelCompat {
+    method public boolean canBubble();
+    method public boolean canBypassDnd();
     method public boolean canShowBadge();
     method public android.media.AudioAttributes? getAudioAttributes();
     method public String? getConversationId();
@@ -231,12 +233,15 @@ package androidx.core.app {
     method public String getId();
     method public int getImportance();
     method public int getLightColor();
+    method @androidx.core.app.NotificationCompat.NotificationVisibility public int getLockscreenVisibility();
     method public CharSequence? getName();
     method public String? getParentChannelId();
     method public android.net.Uri? getSound();
     method public long[]? getVibrationPattern();
+    method public boolean isImportantConversation();
     method public boolean shouldShowLights();
     method public boolean shouldVibrate();
+    method public androidx.core.app.NotificationChannelCompat.Builder toBuilder();
     field public static final String DEFAULT_CHANNEL_ID = "miscellaneous";
   }
 
@@ -257,9 +262,12 @@ package androidx.core.app {
   }
 
   public class NotificationChannelGroupCompat {
+    method public java.util.List<androidx.core.app.NotificationChannelCompat!> getChannels();
     method public String? getDescription();
     method public String getId();
     method public CharSequence? getName();
+    method public boolean isBlocked();
+    method public androidx.core.app.NotificationChannelGroupCompat.Builder toBuilder();
   }
 
   public static class NotificationChannelGroupCompat.Builder {
@@ -509,6 +517,7 @@ package androidx.core.app {
   }
 
   public static class NotificationCompat.Builder {
+    ctor @RequiresApi(19) public NotificationCompat.Builder(android.content.Context, android.app.Notification);
     ctor public NotificationCompat.Builder(android.content.Context, String);
     ctor @Deprecated public NotificationCompat.Builder(android.content.Context);
     method public androidx.core.app.NotificationCompat.Builder addAction(int, CharSequence?, android.app.PendingIntent?);
@@ -528,7 +537,7 @@ package androidx.core.app {
     method public androidx.core.app.NotificationCompat.Builder extend(androidx.core.app.NotificationCompat.Extender);
     method @RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP_PREFIX) public android.widget.RemoteViews! getBigContentView();
     method @RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP_PREFIX) public androidx.core.app.NotificationCompat.BubbleMetadata? getBubbleMetadata();
-    method @RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP_PREFIX) public int getColor();
+    method @ColorInt @RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP_PREFIX) public int getColor();
     method @RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP_PREFIX) public android.widget.RemoteViews! getContentView();
     method public android.os.Bundle getExtras();
     method @RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP_PREFIX) public android.widget.RemoteViews! getHeadsUpContentView();
@@ -536,7 +545,6 @@ package androidx.core.app {
     method @RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP_PREFIX) public int getPriority();
     method @RestrictTo(androidx.annotation.RestrictTo.Scope.LIBRARY_GROUP_PREFIX) public long getWhenIfShowing();
     method protected static CharSequence? limitCharSequenceLength(CharSequence?);
-    method @RequiresApi(19) public static androidx.core.app.NotificationCompat.Builder recoverBuilder(android.content.Context, android.app.Notification);
     method public androidx.core.app.NotificationCompat.Builder setAllowSystemGeneratedContextualActions(boolean);
     method public androidx.core.app.NotificationCompat.Builder setAutoCancel(boolean);
     method public androidx.core.app.NotificationCompat.Builder setBadgeIconType(@androidx.core.app.NotificationCompat.BadgeIconType int);
@@ -565,7 +573,7 @@ package androidx.core.app {
     method public androidx.core.app.NotificationCompat.Builder setLights(@ColorInt int, int, int);
     method public androidx.core.app.NotificationCompat.Builder setLocalOnly(boolean);
     method public androidx.core.app.NotificationCompat.Builder setLocusId(androidx.core.content.LocusIdCompat?);
-    method public androidx.core.app.NotificationCompat.Builder setNotificationSilent();
+    method @Deprecated public androidx.core.app.NotificationCompat.Builder setNotificationSilent();
     method public androidx.core.app.NotificationCompat.Builder setNumber(int);
     method public androidx.core.app.NotificationCompat.Builder setOngoing(boolean);
     method public androidx.core.app.NotificationCompat.Builder setOnlyAlertOnce(boolean);
@@ -577,6 +585,7 @@ package androidx.core.app {
     method public androidx.core.app.NotificationCompat.Builder setShortcutId(String?);
     method public androidx.core.app.NotificationCompat.Builder setShortcutInfo(androidx.core.content.pm.ShortcutInfoCompat?);
     method public androidx.core.app.NotificationCompat.Builder setShowWhen(boolean);
+    method public androidx.core.app.NotificationCompat.Builder setSilent(boolean);
     method @RequiresApi(23) public androidx.core.app.NotificationCompat.Builder setSmallIcon(androidx.core.graphics.drawable.IconCompat);
     method public androidx.core.app.NotificationCompat.Builder setSmallIcon(int);
     method public androidx.core.app.NotificationCompat.Builder setSmallIcon(int, int);
@@ -803,9 +812,14 @@ package androidx.core.app {
     method public int getImportance();
     method public android.app.NotificationChannel? getNotificationChannel(String);
     method public android.app.NotificationChannel? getNotificationChannel(String, String);
+    method public androidx.core.app.NotificationChannelCompat? getNotificationChannelCompat(String);
+    method public androidx.core.app.NotificationChannelCompat? getNotificationChannelCompat(String, String);
     method public android.app.NotificationChannelGroup? getNotificationChannelGroup(String);
+    method public androidx.core.app.NotificationChannelGroupCompat? getNotificationChannelGroupCompat(String);
     method public java.util.List<android.app.NotificationChannelGroup!> getNotificationChannelGroups();
+    method public java.util.List<androidx.core.app.NotificationChannelGroupCompat!> getNotificationChannelGroupsCompat();
     method public java.util.List<android.app.NotificationChannel!> getNotificationChannels();
+    method public java.util.List<androidx.core.app.NotificationChannelCompat!> getNotificationChannelsCompat();
     method public void notify(int, android.app.Notification);
     method public void notify(String?, int, android.app.Notification);
     field public static final String ACTION_BIND_SIDE_CHANNEL = "android.support.BIND_NOTIFICATION_SIDE_CHANNEL";
@@ -1766,7 +1780,9 @@ package androidx.core.net {
     method public String? getSubject();
     method public String? getTo();
     method public static boolean isMailTo(String?);
+    method public static boolean isMailTo(android.net.Uri?);
     method public static androidx.core.net.MailTo parse(String) throws androidx.core.net.ParseException;
+    method public static androidx.core.net.MailTo parse(android.net.Uri) throws androidx.core.net.ParseException;
     field public static final String MAILTO_SCHEME = "mailto:";
   }
 
@@ -2151,6 +2167,7 @@ package androidx.core.util {
     method public static boolean equals(Object?, Object?);
     method public static int hash(java.lang.Object!...);
     method public static int hashCode(Object?);
+    method public static String? toString(Object?, String?);
   }
 
   public class Pair<F, S> {

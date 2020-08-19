@@ -37,7 +37,7 @@ import androidx.annotation.RestrictTo;
  *     try {
  *         int quotient = dividend / divisor;
  *     } catch (ArithmeticException exception) {
- *         Logger.eIfEnabled(TAG, "Divide operation error", exception);
+ *         Logger.e(TAG, "Divide operation error", exception);
  *     }
  * </pre>
  * <p> If an action has to be performed alongside logging, or if building the log message is costly,
@@ -61,7 +61,7 @@ public final class Logger {
     /** On API levels strictly below 24, the log tag's length must not exceed 23 characters. */
     private static final int MAX_TAG_LENGTH = 23;
 
-    private static final int DEFAULT_MIN_LOG_LEVEL = Log.INFO;
+    private static final int DEFAULT_MIN_LOG_LEVEL = Log.DEBUG;
     private static int sMinLogLevel = DEFAULT_MIN_LOG_LEVEL;
 
     private Logger() {
@@ -115,120 +115,76 @@ public final class Logger {
         return sMinLogLevel <= Log.ERROR || Log.isLoggable(truncateTag(tag), Log.ERROR);
     }
 
-    /** Logs the given {@link Log#DEBUG} message. */
-    public static void d(@NonNull String tag, @NonNull String message) {
-        d(tag, message, null);
-    }
-
-    /** Logs the given {@link Log#DEBUG} message and the exception's stacktrace. */
-    public static void d(@NonNull String tag, @NonNull String message,
-            @Nullable final Throwable throwable) {
-        Log.d(truncateTag(tag), message, throwable);
-    }
-
     /**
      * Logs the given {@link Log#DEBUG} message if the tag is
      * {@linkplain #isDebugEnabled(String) loggable}.
      */
-    public static void dIfEnabled(@NonNull String tag, @NonNull String message) {
-        dIfEnabled(tag, message, null);
+    public static void d(@NonNull String tag, @NonNull String message) {
+        d(tag, message, null);
     }
 
     /**
      * Logs the given {@link Log#DEBUG} message and the exception's stacktrace if the tag is
      * {@linkplain #isDebugEnabled(String) loggable}.
      */
-    public static void dIfEnabled(@NonNull String tag, @NonNull String message,
+    public static void d(@NonNull String tag, @NonNull String message,
             @Nullable final Throwable throwable) {
         if (isDebugEnabled(tag)) {
             Log.d(truncateTag(tag), message, throwable);
         }
     }
 
-    /** Logs the given {@link Log#INFO} message. */
-    public static void i(@NonNull String tag, @NonNull String message) {
-        i(tag, message, null);
-    }
-
-    /** Logs the given {@link Log#INFO} message and the exception's stacktrace. */
-    public static void i(@NonNull String tag, @NonNull String message,
-            @Nullable final Throwable throwable) {
-        Log.i(truncateTag(tag), message, throwable);
-    }
-
     /**
      * Logs the given {@link Log#INFO} message if the tag is
      * {@linkplain #isInfoEnabled(String) loggable}.
      */
-    public static void iIfEnabled(@NonNull String tag, @NonNull String message) {
-        iIfEnabled(tag, message, null);
+    public static void i(@NonNull String tag, @NonNull String message) {
+        i(tag, message, null);
     }
 
     /**
      * Logs the given {@link Log#INFO} message and the exception's stacktrace if the tag is
      * {@linkplain #isInfoEnabled(String) loggable}.
      */
-    public static void iIfEnabled(@NonNull String tag, @NonNull String message,
+    public static void i(@NonNull String tag, @NonNull String message,
             @Nullable final Throwable throwable) {
         if (isInfoEnabled(tag)) {
             Log.i(truncateTag(tag), message, throwable);
         }
     }
 
-    /** Logs the given {@link Log#WARN} message. */
-    public static void w(@NonNull String tag, @NonNull String message) {
-        w(tag, message, null);
-    }
-
-    /** Logs the given {@link Log#WARN} message and the exception's stacktrace. */
-    public static void w(@NonNull String tag, @NonNull String message,
-            @Nullable final Throwable throwable) {
-        Log.w(truncateTag(tag), message, throwable);
-    }
-
     /**
      * Logs the given {@link Log#WARN} message if the tag is
      * {@linkplain #isWarnEnabled(String) loggable}.
      */
-    public static void wIfEnabled(@NonNull String tag, @NonNull String message) {
-        wIfEnabled(tag, message, null);
+    public static void w(@NonNull String tag, @NonNull String message) {
+        w(tag, message, null);
     }
 
     /**
      * Logs the given {@link Log#WARN} message and the exception's stacktrace if the tag is
      * {@linkplain #isWarnEnabled(String) loggable}.
      */
-    public static void wIfEnabled(@NonNull String tag, @NonNull String message,
+    public static void w(@NonNull String tag, @NonNull String message,
             @Nullable final Throwable throwable) {
         if (isWarnEnabled(tag)) {
             Log.w(truncateTag(tag), message, throwable);
         }
     }
 
-    /** Logs the given {@link Log#ERROR} message. */
-    public static void e(@NonNull String tag, @NonNull String message) {
-        e(tag, message, null);
-    }
-
-    /** Logs the given {@link Log#ERROR} message and the exception's stacktrace. */
-    public static void e(@NonNull String tag, @NonNull String message,
-            @Nullable final Throwable throwable) {
-        Log.e(truncateTag(tag), message, throwable);
-    }
-
     /**
      * Logs the given {@link Log#ERROR} message if the tag is
      * {@linkplain #isErrorEnabled(String) loggable}.
      */
-    public static void eIfEnabled(@NonNull String tag, @NonNull String message) {
-        eIfEnabled(tag, message, null);
+    public static void e(@NonNull String tag, @NonNull String message) {
+        e(tag, message, null);
     }
 
     /**
      * Logs the given {@link Log#ERROR} message and the exception's stacktrace if the tag is
      * {@linkplain #isErrorEnabled(String) loggable}.
      */
-    public static void eIfEnabled(@NonNull String tag, @NonNull String message,
+    public static void e(@NonNull String tag, @NonNull String message,
             @Nullable final Throwable throwable) {
         if (isErrorEnabled(tag)) {
             Log.e(truncateTag(tag), message, throwable);

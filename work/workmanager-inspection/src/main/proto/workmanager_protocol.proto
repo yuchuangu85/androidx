@@ -29,12 +29,18 @@ message Command {
   // Wrapped specialised Command.
   oneof OneOf {
     TrackWorkManagerCommand track_work_manager = 1;
+    CancelWorkCommand cancel_work = 2;
   }
 }
 
 // Request for the Inspector to listen to the WorkManager
 // for work related updates.
 message TrackWorkManagerCommand {}
+
+// Request for the Inspector to cancel a work request.
+message CancelWorkCommand {
+    string id = 1;
+}
 
 // --- Responses ---
 
@@ -43,12 +49,16 @@ message TrackWorkManagerCommand {}
 message Response {
     oneof OneOf {
         TrackWorkManagerResponse track_work_manager = 1;
+        CancelWorkResponse cancel_response = 2;
         ErrorResponse error = 400;
     }
 }
 
 // Object expected as a response to TrackWorkManagerCommand.
 message TrackWorkManagerResponse {}
+
+// Object expected as a response to CancelWorkCommand.
+message CancelWorkResponse{}
 
 // General Error message.
 message ErrorResponse {
@@ -109,6 +119,11 @@ message WorkInfo {
     int32 run_attempt_count = 6;
     bool is_periodic = 7;
     Constraints constraints = 8;
+    CallStack call_stack = 9;
+    int64 schedule_requested_at = 10;
+    repeated string prerequisites = 11;
+    repeated string dependents = 12;
+    repeated string names = 13;
 }
 
 // A list of key/value pairs which are used as inputs and outputs for Workers
@@ -137,4 +152,15 @@ message Constraints {
     bool requires_device_idle = 3;
     bool requires_battery_not_low = 4;
     bool requires_storage_not_low = 5;
+}
+
+// Stack trace information.
+message CallStack {
+  message Frame {
+    string class_name = 1;
+    string method_name = 2;
+    string file_name = 3;
+    int32 line_number = 4;
+  }
+  repeated Frame frames = 1;
 }

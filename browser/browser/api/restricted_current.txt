@@ -196,6 +196,7 @@ package androidx.browser.customtabs {
     field public static final String CATEGORY_TRUSTED_WEB_ACTIVITY_IMMERSIVE_MODE = "androidx.browser.trusted.category.ImmersiveMode";
     field public static final String CATEGORY_WEB_SHARE_TARGET_V2 = "androidx.browser.trusted.category.WebShareTargetV2";
     field public static final int FILE_PURPOSE_TRUSTED_WEB_ACTIVITY_SPLASH_IMAGE = 1; // 0x1
+    field public static final String KEY_SUCCESS = "androidx.browser.customtabs.SUCCESS";
     field public static final String KEY_URL = "android.support.customtabs.otherurls.URL";
     field public static final int RELATION_HANDLE_ALL_URLS = 2; // 0x2
     field public static final int RELATION_USE_AS_ORIGIN = 1; // 0x1
@@ -360,6 +361,7 @@ package androidx.browser.trusted {
     method @MainThread public final boolean onUnbind(android.content.Intent?);
     field public static final String ACTION_TRUSTED_WEB_ACTIVITY_SERVICE = "android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE";
     field public static final String KEY_SMALL_ICON_BITMAP = "android.support.customtabs.trusted.SMALL_ICON_BITMAP";
+    field public static final String KEY_SUCCESS = "androidx.browser.trusted.SUCCESS";
     field public static final String META_DATA_NAME_SMALL_ICON = "android.support.customtabs.trusted.SMALL_ICON";
     field public static final int SMALL_ICON_NOT_SET = -1; // 0xffffffff
   }

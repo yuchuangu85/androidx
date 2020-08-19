@@ -28,8 +28,11 @@ import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
 import androidx.work.WorkManager
+import androidx.work.impl.WorkContinuationImpl
 import androidx.work.impl.WorkManagerImpl
+import androidx.work.impl.model.WorkSpec
 import androidx.work.inspection.WorkManagerInspectorProtocol.Command
+import androidx.work.inspection.WorkManagerInspectorProtocol.Command.OneOfCase.CANCEL_WORK
 import androidx.work.inspection.WorkManagerInspectorProtocol.Command.OneOfCase.TRACK_WORK_MANAGER
 import androidx.work.inspection.WorkManagerInspectorProtocol.ErrorResponse
 import androidx.work.inspection.WorkManagerInspectorProtocol.Event
@@ -54,11 +57,25 @@ class WorkManagerInspector(
     private val workManager: WorkManagerImpl
     private val executor = Executors.newSingleThreadExecutor()
 
+    private val stackTraceMap = mutableMapOf<String, Array<StackTraceElement>>()
+
     init {
-        workManager = environment.findInstances(Application::class.java).first()
+        workManager = environment.artTI().findInstances(Application::class.java).first()
             .let { application -> WorkManager.getInstance(application) as WorkManagerImpl }
         Handler(Looper.getMainLooper()).post {
             lifecycleRegistry.currentState = Lifecycle.State.STARTED
+        }
+
+        environment.artTI().registerEntryHook(
+            WorkContinuationImpl::class.java,
+            "enqueue()Landroidx/work/Operation;"
+        ) { obj, _ ->
+            val stackTrace = Throwable().stackTrace
+            executor.submit {
+                (obj as? WorkContinuationImpl)?.allIds?.forEach { id ->
+                    stackTraceMap[id] = stackTrace.prune()
+                }
+            }
         }
     }
 
@@ -77,6 +94,13 @@ class WorkManagerInspector(
                         updateWorkIdList(oldList ?: listOf(), newList)
                     }
                 callback.reply(response.toByteArray())
+            }
+            CANCEL_WORK -> {
+                val response = Response.newBuilder()
+                    .setTrackWorkManager(TrackWorkManagerResponse.getDefaultInstance())
+                    .build()
+                workManager.cancelWorkById(UUID.fromString(command.cancelWork.id)).result
+                    .addListener(Runnable { callback.reply(response.toByteArray()) }, executor)
             }
             else -> {
                 val errorResponse = ErrorResponse.newBuilder()
@@ -110,6 +134,18 @@ class WorkManagerInspector(
         }
     }
 
+    /**
+     * Prune internal [StackTraceElement]s with classes from work manager libraries.
+     */
+    private fun Array<StackTraceElement>.prune(): Array<StackTraceElement> {
+        // Find the first element outside work manager libraries.
+        val validIndex = indexOfFirst {
+            !it.className.startsWith("androidx.work")
+        }
+
+        return toList().subList(validIndex, size).toTypedArray()
+    }
+
     private fun createWorkInfoProto(id: String): WorkManagerInspectorProtocol.WorkInfo {
         val workInfoBuilder = WorkManagerInspectorProtocol.WorkInfo.newBuilder()
         val workSpec = workManager.workDatabase.workSpecDao().getWorkSpec(id)
@@ -123,6 +159,25 @@ class WorkManagerInspector(
         workInfoBuilder.constraints = workSpec.constraints.toProto()
         workManager.getWorkInfoById(UUID.fromString(id)).let {
             workInfoBuilder.addAllTags(it.get().tags)
+        }
+
+        val workStackBuilder = WorkManagerInspectorProtocol.CallStack.newBuilder()
+        stackTraceMap[id]?.let { stack ->
+            workStackBuilder.addAllFrames(stack.map { it.toProto() })
+        }
+        workInfoBuilder.callStack = workStackBuilder.build()
+
+        workInfoBuilder.scheduleRequestedAt = WorkSpec.SCHEDULE_NOT_REQUESTED_YET
+        workManager.workDatabase.dependencyDao().getPrerequisites(id).let {
+            workInfoBuilder.addAllPrerequisites(it)
+        }
+
+        workManager.workDatabase.dependencyDao().getDependentWorkIds(id).let {
+            workInfoBuilder.addAllDependents(it)
+        }
+
+        workManager.workDatabase.workNameDao().getNamesForWorkSpecId(id).let {
+            workInfoBuilder.addAllNames(it)
         }
 
         return workInfoBuilder.build()

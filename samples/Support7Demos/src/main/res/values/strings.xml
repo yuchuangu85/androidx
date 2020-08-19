@@ -78,6 +78,7 @@
     <string name="action_bar_action_mode">AppCompat/Action Bar/Action Mode</string>
     <string name="action_bar_hide_scroll">AppCompat/Action Bar/Hide on Scroll</string>
     <string name="appcompat_widgets_buttons">AppCompat/Widgets/Buttons</string>
+    <string name="appcompat_widgets_ratingbars">AppCompat/Widgets/Rating Bars</string>
     <string name="appcompat_widgets_spinners">AppCompat/Widgets/Spinners</string>
     <string name="appcompat_widgets_switches">AppCompat/Widgets/Switches</string>
     <string name="appcompat_widgets_text_input">AppCompat/Widgets/Text Input</string>
@@ -269,8 +270,11 @@
     <string name="appcompat_vector_title">AppCompat/Integrations/AnimatedVectorDrawable</string>
     <string name="appcompat_animated_selector_title">AppCompat/Integrations/AnimatedStateListDrawable</string>
 
-    <string name="simple_selection_demo_activity">RecyclerView Selection: Gesture Only</string>
-    <string name="fancy_selection_demo_activity">RecyclerView Selection: Gesture and Pointer</string>
+    <!-- RecyclerView-Selection -->
+    <string name="single_selection_demo_activity">RecyclerView/Selection/Single Select</string>
+    <string name="simple_selection_demo_activity">RecyclerView/Selection/Gesture Only</string>
+    <string name="fancy_selection_demo_activity">RecyclerView/Selection/Gesture and Pointer
+    (for Chromebooks!)</string>
 
     <string name="night_mode">DAY</string>
 
@@ -284,6 +288,7 @@
     <string name="popup_group_dividers">Display group dividers</string>
 
     <string name="webview">WebView</string>
+    <string name="editbox">EditText</string>
     <string name="launch_activity">Launch Activity</string>
 
     <string name="custom_drawable">Drawable/Custom drawable</string>
