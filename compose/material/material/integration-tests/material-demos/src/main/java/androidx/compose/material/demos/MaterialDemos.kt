@@ -16,16 +16,19 @@
 
 package androidx.compose.material.demos
 
+import androidx.compose.integration.demos.common.ActivityDemo
+import androidx.compose.integration.demos.common.ComposableDemo
+import androidx.compose.integration.demos.common.DemoCategory
 import androidx.compose.material.samples.AlertDialogSample
+import androidx.compose.material.samples.BackdropScaffoldSample
 import androidx.compose.material.samples.BottomDrawerSample
 import androidx.compose.material.samples.CustomAlertDialogSample
 import androidx.compose.material.samples.EmphasisSample
+import androidx.compose.material.samples.ModalBottomSheetSample
 import androidx.compose.material.samples.ModalDrawerSample
+import androidx.compose.material.samples.BottomSheetScaffoldSample
 import androidx.compose.material.samples.ScaffoldWithBottomBarAndCutout
 import androidx.compose.material.samples.ScaffoldWithCoroutinesSnackbar
-import androidx.ui.demos.common.ActivityDemo
-import androidx.ui.demos.common.ComposableDemo
-import androidx.ui.demos.common.DemoCategory
 
 val MaterialDemos = DemoCategory("Material", listOf(
     DemoCategory("AlertDialog", listOf(
@@ -33,7 +36,9 @@ val MaterialDemos = DemoCategory("Material", listOf(
         ComposableDemo("Custom buttons") { CustomAlertDialogSample() }
     )),
     ComposableDemo("App Bars") { AppBarDemo() },
+    ComposableDemo("Backdrop") { BackdropScaffoldSample() },
     ComposableDemo("Bottom Navigation") { BottomNavigationDemo() },
+    ComposableDemo("Bottom Sheet") { BottomSheetScaffoldSample() },
     ComposableDemo("Buttons & FABs") { ButtonDemo() },
     DemoCategory("Navigation drawer", listOf(
         ComposableDemo("Modal drawer") { ModalDrawerSample() },
@@ -53,6 +58,7 @@ val MaterialDemos = DemoCategory("Material", listOf(
             ActivityDemo("Dynamic Theme", DynamicThemeActivity::class)
         )
     ),
+    ComposableDemo("Modal bottom sheet") { ModalBottomSheetSample() },
     ComposableDemo("Progress Indicators") { ProgressIndicatorDemo() },
     ComposableDemo("Scaffold") { ScaffoldWithBottomBarAndCutout() },
     ComposableDemo("Selection Controls") { SelectionControlsDemo() },

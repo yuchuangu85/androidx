@@ -16,10 +16,14 @@
 
 package androidx.compose.material
 
+import androidx.compose.animation.core.AnimationEndReason
 import androidx.compose.animation.core.ManualAnimationClock
 import androidx.compose.foundation.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.gesture.scrollorientationlocking.Orientation
@@ -32,7 +36,6 @@ import androidx.ui.test.center
 import androidx.ui.test.createComposeRule
 import androidx.ui.test.onNodeWithTag
 import androidx.ui.test.performGesture
-import androidx.ui.test.runOnIdle
 import androidx.ui.test.swipe
 import androidx.ui.test.swipeWithVelocity
 import com.google.common.truth.Truth.assertThat
@@ -49,7 +52,7 @@ import kotlin.math.sign
 class SwipeableTest {
 
     @get:Rule
-    val composeTestRule = createComposeRule(disableTransitions = true)
+    val rule = createComposeRule(disableTransitions = true)
 
     private val swipeableTag = "swipeableTag"
 
@@ -75,35 +78,35 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeRight()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
         }
 
         swipeLeft()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeDown()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeUp()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
     }
@@ -123,35 +126,35 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeDown()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
         }
 
         swipeUp()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeRight()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeLeft()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
     }
@@ -172,21 +175,21 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeRight()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeLeft()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
     }
@@ -207,21 +210,21 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeDown()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeUp()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
     }
@@ -242,28 +245,28 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeRight()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeLeft()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
         }
 
         swipeRight()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
     }
@@ -284,28 +287,28 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeDown()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeUp()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
         }
 
         swipeDown()
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
     }
@@ -325,14 +328,14 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.offset.value).isEqualTo(0f)
         }
 
         swipeRight()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.offset.value).isNonZero()
             assertThat(state.offset.value).isLessThan(100f)
@@ -340,14 +343,14 @@ class SwipeableTest {
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.offset.value).isEqualTo(100f)
         }
 
         swipeLeft()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.offset.value).isNonZero()
             assertThat(state.offset.value).isLessThan(100f)
@@ -355,7 +358,7 @@ class SwipeableTest {
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.offset.value).isEqualTo(0f)
         }
@@ -367,7 +370,7 @@ class SwipeableTest {
     @Test
     fun swipeable_thresholds_fixed_small() {
         val state = SwipeableState("A", clock)
-        val offsetDp = with(composeTestRule.density) { 35.toDp() }
+        val offsetDp = with(rule.density) { 35.toDp() }
         setSwipeableContent {
             Modifier.swipeable(
                 state = state,
@@ -386,13 +389,13 @@ class SwipeableTest {
 
             swipeRight(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value >= thresholdAtoB
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "B" else "A")
             }
         }
@@ -402,13 +405,13 @@ class SwipeableTest {
 
             swipeLeft(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value <= thresholdBtoA
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "A" else "B")
             }
         }
@@ -420,7 +423,7 @@ class SwipeableTest {
     @Test
     fun swipeable_thresholds_fixed_large() {
         val state = SwipeableState("A", clock)
-        val offsetDp = with(composeTestRule.density) { 65.toDp() }
+        val offsetDp = with(rule.density) { 65.toDp() }
         setSwipeableContent {
             Modifier.swipeable(
                 state = state,
@@ -439,13 +442,13 @@ class SwipeableTest {
 
             swipeRight(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value >= thresholdAtoB
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "B" else "A")
             }
         }
@@ -455,13 +458,13 @@ class SwipeableTest {
 
             swipeLeft(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value <= thresholdBtoA
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "A" else "B")
             }
         }
@@ -491,13 +494,13 @@ class SwipeableTest {
 
             swipeRight(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value >= thresholdAtoB
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "B" else "A")
             }
         }
@@ -507,13 +510,13 @@ class SwipeableTest {
 
             swipeLeft(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value <= thresholdBtoA
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "A" else "B")
             }
         }
@@ -543,13 +546,13 @@ class SwipeableTest {
 
             swipeRight(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value >= thresholdAtoB
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "B" else "A")
             }
         }
@@ -559,13 +562,13 @@ class SwipeableTest {
 
             swipeLeft(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value <= thresholdBtoA
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "A" else "B")
             }
         }
@@ -595,13 +598,13 @@ class SwipeableTest {
 
             swipeRight(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value >= thresholdAtoB
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "B" else "A")
             }
         }
@@ -611,13 +614,13 @@ class SwipeableTest {
 
             swipeLeft(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value <= thresholdBtoA
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "A" else "B")
             }
         }
@@ -629,7 +632,7 @@ class SwipeableTest {
     @Test
     fun swipeable_thresholds_mixed() {
         val state = SwipeableState("A", clock)
-        val offsetDp = with(composeTestRule.density) { 35.toDp() }
+        val offsetDp = with(rule.density) { 35.toDp() }
         setSwipeableContent {
             Modifier.swipeable(
                 state = state,
@@ -654,13 +657,13 @@ class SwipeableTest {
 
             swipeRight(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value >= thresholdAtoB
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "B" else "A")
             }
         }
@@ -670,13 +673,13 @@ class SwipeableTest {
 
             swipeLeft(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value <= thresholdBtoA
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "A" else "B")
             }
         }
@@ -715,13 +718,13 @@ class SwipeableTest {
 
             swipeRight(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value >= thresholdAtoB
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "B" else "A")
             }
         }
@@ -731,13 +734,13 @@ class SwipeableTest {
 
             swipeLeft(offset = 50f + i * 10f)
 
-            val passedThreshold = runOnIdle {
+            val passedThreshold = rule.runOnIdle {
                 state.offset.value <= thresholdBtoA
             }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(if (passedThreshold) "A" else "B")
             }
         }
@@ -749,7 +752,7 @@ class SwipeableTest {
     @Test
     fun swipeable_velocityThreshold() {
         val state = SwipeableState("A", clock)
-        val velocityThresholdDp = with(composeTestRule.density) { 500.toDp() }
+        val velocityThresholdDp = with(rule.density) { 500.toDp() }
         setSwipeableContent {
             Modifier.swipeable(
                 state = state,
@@ -760,35 +763,35 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeRight(velocity = 499f)
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeRight(velocity = 501f)
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
         }
 
         swipeLeft(velocity = 499f)
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
         }
 
         swipeLeft(velocity = 501f)
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
     }
@@ -808,14 +811,14 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
         }
 
         swipeRight(velocity = 1000f)
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isNotEqualTo("C")
         }
     }
@@ -832,40 +835,39 @@ class SwipeableTest {
                 anchors = mapOf(0f to "A"),
                 thresholds = { _, _ -> FractionalThreshold(0.5f) },
                 orientation = Orientation.Horizontal,
-                resistanceFactorAtMin = 0f,
-                resistanceFactorAtMax = 0f
+                resistance = null
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.offset.value).isEqualTo(0f)
             assertThat(state.overflow.value).isEqualTo(0f)
         }
 
         swipeRight()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.offset.value).isZero()
             assertThat(state.overflow.value).isGreaterThan(0f)
         }
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.offset.value).isEqualTo(0f)
             assertThat(state.overflow.value).isEqualTo(0f)
         }
 
         swipeLeft()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.offset.value).isZero()
             assertThat(state.overflow.value).isLessThan(0f)
         }
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.offset.value).isEqualTo(0f)
             assertThat(state.overflow.value).isEqualTo(0f)
         }
@@ -877,30 +879,28 @@ class SwipeableTest {
     @Test
     fun swipeable_resistance_atMinBound() {
         val state = SwipeableState("A", clock)
+        val resistance = ResistanceConfig(100f, 5f, 0f)
         setSwipeableContent {
             Modifier.swipeable(
                 state = state,
                 anchors = mapOf(0f to "A"),
                 thresholds = { _, _ -> FractionalThreshold(0.5f) },
                 orientation = Orientation.Horizontal,
-                resistanceFactorAtMin = 5f,
-                resistanceFactorAtMax = 0f
+                resistance = resistance
             )
         }
 
-        val width = with(composeTestRule.density) { rootWidth().toPx() }
-
         swipeLeft()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.offset.value).isEqualTo(
-                computeResistance(width, 5f, state.overflow.value)
+                resistance.computeResistance(state.overflow.value)
             )
         }
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.offset.value).isEqualTo(0f)
         }
     }
@@ -911,30 +911,28 @@ class SwipeableTest {
     @Test
     fun swipeable_resistance_atMaxBound() {
         val state = SwipeableState("A", clock)
+        val resistance = ResistanceConfig(100f, 0f, 5f)
         setSwipeableContent {
             Modifier.swipeable(
                 state = state,
                 anchors = mapOf(0f to "A"),
                 thresholds = { _, _ -> FractionalThreshold(0.5f) },
                 orientation = Orientation.Horizontal,
-                resistanceFactorAtMin = 0f,
-                resistanceFactorAtMax = 5f
+                resistance = resistance
             )
         }
 
-        val width = with(composeTestRule.density) { rootWidth().toPx() }
-
         swipeRight()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.offset.value).isEqualTo(
-                computeResistance(width, 5f, state.overflow.value)
+                resistance.computeResistance(state.overflow.value)
             )
         }
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.offset.value).isEqualTo(0f)
         }
     }
@@ -960,11 +958,11 @@ class SwipeableTest {
 
             swipeRight(offset = 50f + i * 10f)
 
-            val target = runOnIdle { state.targetValue }
+            val target = rule.runOnIdle { state.targetValue }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(target)
             }
         }
@@ -974,11 +972,11 @@ class SwipeableTest {
 
             swipeLeft(offset = 50f + i * 10f)
 
-            val target = runOnIdle { state.targetValue }
+            val target = rule.runOnIdle { state.targetValue }
 
             advanceClock()
 
-            runOnIdle {
+            rule.runOnIdle {
                 assertThat(state.value).isEqualTo(target)
             }
         }
@@ -999,7 +997,7 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.progress.from).isEqualTo("A")
             assertThat(state.progress.to).isEqualTo("A")
@@ -1008,7 +1006,7 @@ class SwipeableTest {
 
         swipeRight()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.progress.from).isEqualTo("A")
             assertThat(state.progress.to).isEqualTo("B")
@@ -1017,7 +1015,7 @@ class SwipeableTest {
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.progress.from).isEqualTo("B")
             assertThat(state.progress.to).isEqualTo("B")
@@ -1026,7 +1024,7 @@ class SwipeableTest {
 
         swipeLeft()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.progress.from).isEqualTo("B")
             assertThat(state.progress.to).isEqualTo("A")
@@ -1035,7 +1033,7 @@ class SwipeableTest {
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.progress.from).isEqualTo("A")
             assertThat(state.progress.to).isEqualTo("A")
@@ -1058,35 +1056,35 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.direction).isEqualTo(0f)
         }
 
         swipeRight()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.direction).isEqualTo(1f)
         }
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.direction).isEqualTo(0f)
         }
 
         swipeLeft()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.direction).isEqualTo(-1f)
         }
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.direction).isEqualTo(0f)
         }
@@ -1107,14 +1105,14 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.progress.from).isEqualTo("A")
             assertThat(state.progress.to).isEqualTo("A")
             assertThat(state.progress.fraction).isEqualTo(1f)
         }
 
-        onNodeWithTag(swipeableTag).performGesture {
+        rule.onNodeWithTag(swipeableTag).performGesture {
             swipe(
                 start = center,
                 end = Offset(x = center.x + 125f, y = center.y)
@@ -1125,7 +1123,7 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.progress.from).isEqualTo("A")
             assertThat(state.progress.to).isEqualTo("B")
@@ -1134,14 +1132,14 @@ class SwipeableTest {
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.progress.from).isEqualTo("B")
             assertThat(state.progress.to).isEqualTo("B")
             assertThat(state.progress.fraction).isEqualTo(1f)
         }
 
-        onNodeWithTag(swipeableTag).performGesture {
+        rule.onNodeWithTag(swipeableTag).performGesture {
             swipe(
                 start = center,
                 end = Offset(x = center.x - 125f, y = center.y)
@@ -1152,7 +1150,7 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.progress.from).isEqualTo("B")
             assertThat(state.progress.to).isEqualTo("A")
@@ -1161,7 +1159,7 @@ class SwipeableTest {
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.progress.from).isEqualTo("A")
             assertThat(state.progress.to).isEqualTo("A")
@@ -1184,12 +1182,12 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.direction).isEqualTo(0f)
         }
 
-        onNodeWithTag(swipeableTag).performGesture {
+        rule.onNodeWithTag(swipeableTag).performGesture {
             swipe(
                 start = center,
                 end = Offset(x = center.x + 125f, y = center.y)
@@ -1200,19 +1198,19 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.direction).isEqualTo(1f)
         }
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.direction).isEqualTo(0f)
         }
 
-        onNodeWithTag(swipeableTag).performGesture {
+        rule.onNodeWithTag(swipeableTag).performGesture {
             swipe(
                 start = center,
                 end = Offset(x = center.x - 125f, y = center.y)
@@ -1223,14 +1221,14 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.direction).isEqualTo(-1f)
         }
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.direction).isEqualTo(0f)
         }
@@ -1251,14 +1249,14 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.offset.value).isEqualTo(0f)
         }
 
         state.snapTo("B")
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.offset.value).isEqualTo(100f)
         }
@@ -1279,21 +1277,21 @@ class SwipeableTest {
             )
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.offset.value).isEqualTo(0f)
         }
 
         state.animateTo("B")
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("A")
             assertThat(state.offset.value).isEqualTo(0f)
         }
 
         advanceClock()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state.value).isEqualTo("B")
             assertThat(state.offset.value).isEqualTo(100f)
         }
@@ -1324,11 +1322,35 @@ class SwipeableTest {
     }
 
     /**
+     * Tests that the 'onEnd' callback of 'animateTo' is invoked if the animation is interrupted.
+     */
+    @Test
+    fun swipeable_animateTo_onEnd_interrupted() {
+        val state = SwipeableState("A", clock)
+        setSwipeableContent {
+            Modifier.swipeable(
+                state = state,
+                anchors = mapOf(0f to "A", 100f to "B"),
+                thresholds = { _, _ -> FractionalThreshold(0.5f) },
+                orientation = Orientation.Horizontal
+            )
+        }
+
+        var endReason: AnimationEndReason? = null
+        state.animateTo("B",
+            onEnd = { reason, _ -> endReason = reason }
+        )
+        assertThat(endReason).isNull()
+        swipeRight()
+        assertThat(endReason).isEqualTo(AnimationEndReason.Interrupted)
+    }
+
+    /**
      * Tests that the [SwipeableState] is restored, when created with [rememberSwipeableState].
      */
     @Test
     fun swipeable_restoreSwipeableState() {
-        val restorationTester = StateRestorationTester(composeTestRule)
+        val restorationTester = StateRestorationTester(rule)
         var state: SwipeableState<String>? = null
 
         restorationTester.setContent {
@@ -1341,15 +1363,113 @@ class SwipeableTest {
             ))
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             state!!.animateTo("B")
             state = null
         }
 
         restorationTester.emulateSavedInstanceStateRestore()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(state!!.value).isEqualTo("B")
+        }
+    }
+
+    /**
+     * Tests that the `onValueChange` callback of [rememberSwipeableState] is invoked correctly.
+     */
+    @Test
+    fun swipeable_swipeableStateFor_onValueChange() {
+        var onStateChangeCallbacks = 0
+        lateinit var state: MutableState<String>
+        setSwipeableContent {
+            state = remember { mutableStateOf("A") }
+            Modifier.swipeable(
+                state = rememberSwipeableStateFor(
+                    value = state.value,
+                    onValueChange = {
+                        onStateChangeCallbacks += 1
+                        state.value = it
+                    }
+                ),
+                anchors = mapOf(0f to "A", 100f to "B"),
+                thresholds = { _, _ -> FractionalThreshold(0.5f) },
+                orientation = Orientation.Horizontal
+            )
+        }
+
+        rule.runOnIdle {
+            assertThat(state.value).isEqualTo("A")
+            assertThat(onStateChangeCallbacks).isEqualTo(0)
+        }
+
+        swipeRight()
+
+        rule.runOnIdle {
+            assertThat(state.value).isEqualTo("B")
+            assertThat(onStateChangeCallbacks).isEqualTo(1)
+        }
+    }
+
+    /**
+     * Tests that the [SwipeableState] is updated if the anchors change.
+     */
+    @Test
+    fun swipeable_anchorsUpdated() {
+        lateinit var swipeableState: SwipeableState<String>
+        lateinit var anchors: MutableState<Map<Float, String>>
+        setSwipeableContent {
+            swipeableState = rememberSwipeableState("A")
+            anchors = remember { mutableStateOf(mapOf(0f to "A")) }
+            Modifier.swipeable(
+                state = swipeableState,
+                anchors = anchors.value,
+                thresholds = { _, _ -> FractionalThreshold(0.5f) },
+                orientation = Orientation.Horizontal
+            )
+        }
+
+        rule.runOnIdle {
+            assertThat(swipeableState.value).isEqualTo("A")
+            assertThat(swipeableState.offset.value).isEqualTo(0f)
+        }
+
+        anchors.value = mapOf(50f to "A")
+
+        rule.runOnIdle {
+            assertThat(swipeableState.value).isEqualTo("A")
+            assertThat(swipeableState.offset.value).isEqualTo(50f)
+        }
+    }
+
+    /**
+     * Tests that the [SwipeableState] is updated if the anchors change.
+     */
+    @Test
+    fun swipeable_anchorsUpdated_currentAnchorRemoved() {
+        lateinit var swipeableState: SwipeableState<String>
+        lateinit var anchors: MutableState<Map<Float, String>>
+        setSwipeableContent {
+            swipeableState = rememberSwipeableState("A")
+            anchors = remember { mutableStateOf(mapOf(0f to "A")) }
+            Modifier.swipeable(
+                state = swipeableState,
+                anchors = anchors.value,
+                thresholds = { _, _ -> FractionalThreshold(0.5f) },
+                orientation = Orientation.Horizontal
+            )
+        }
+
+        rule.runOnIdle {
+            assertThat(swipeableState.value).isEqualTo("A")
+            assertThat(swipeableState.offset.value).isEqualTo(0f)
+        }
+
+        anchors.value = mapOf(50f to "B", 100f to "C")
+
+        rule.runOnIdle {
+            assertThat(swipeableState.value).isEqualTo("B")
+            assertThat(swipeableState.offset.value).isEqualTo(50f)
         }
     }
 
@@ -1378,7 +1498,7 @@ class SwipeableTest {
     }
 
     private fun performSwipe(x: Float = 0f, y: Float = 0f, velocity: Float? = null) {
-        onNodeWithTag(swipeableTag).performGesture {
+        rule.onNodeWithTag(swipeableTag).performGesture {
             val start = Offset(center.x - x / 2, center.y - y / 2)
             val end = Offset(center.x + x / 2, center.y + y / 2)
             if (velocity == null) swipe(start, end) else swipeWithVelocity(start, end, velocity)
@@ -1386,7 +1506,7 @@ class SwipeableTest {
     }
 
     private fun setSwipeableContent(swipeableFactory: @Composable () -> Modifier) {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Box(modifier = Modifier.fillMaxSize().testTag(swipeableTag).then(swipeableFactory()))
         }
     }

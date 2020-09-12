@@ -17,10 +17,9 @@
 package androidx.ui.test.inputdispatcher
 
 import androidx.compose.ui.geometry.Offset
-import androidx.ui.test.AndroidBaseInputDispatcher
-import androidx.ui.test.AndroidBaseInputDispatcher.InputDispatcherTestRule
 import androidx.ui.test.InputDispatcher
-import androidx.ui.test.android.AndroidInputDispatcher
+import androidx.ui.test.AndroidInputDispatcher
+import androidx.ui.test.AndroidInputDispatcher.InputDispatcherTestRule
 import androidx.ui.test.util.MotionEventRecorder
 import com.google.common.truth.Truth.assertThat
 import org.junit.After
@@ -36,7 +35,7 @@ open class InputDispatcherTest(eventPeriodOverride: Long? = null) {
     )
 
     internal val recorder = MotionEventRecorder()
-    internal val subject = AndroidInputDispatcher(recorder::recordEvent)
+    internal val subject = AndroidInputDispatcher(null, recorder::recordEvent)
 
     @After
     fun tearDown() {
@@ -75,5 +74,5 @@ internal fun AndroidInputDispatcher.generateCancelAndCheck(delay: Long? = null) 
 }
 
 internal fun InputDispatcher.verifyNoGestureInProgress() {
-    assertThat((this as AndroidBaseInputDispatcher).isGestureInProgress).isFalse()
+    assertThat((this as AndroidInputDispatcher).isGestureInProgress).isFalse()
 }

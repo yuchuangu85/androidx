@@ -52,7 +52,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -90,8 +89,9 @@ public abstract class RoomDatabase {
     boolean mWriteAheadLoggingEnabled;
 
     /**
-     * @deprecated Will be hidden in the next release.
+     * @hide
      */
+    @RestrictTo(RestrictTo.Scope.LIBRARY_GROUP_PREFIX)
     @Nullable
     @Deprecated
     protected List<Callback> mCallbacks;
@@ -128,8 +128,8 @@ public abstract class RoomDatabase {
         return mSuspendingTransactionId;
     }
 
-
-    private final Map<String, Object> mBackingFieldMap = new ConcurrentHashMap<>();
+    private final Map<String, Object> mBackingFieldMap =
+            Collections.synchronizedMap(new HashMap<>());
 
     /**
      * Gets the map for storing extension properties of Kotlin type.
@@ -541,7 +541,7 @@ public abstract class RoomDatabase {
         private final String mName;
         private final Context mContext;
         private ArrayList<Callback> mCallbacks;
-        private PrepackagedCallback mPrepackagedCallback;
+        private PrepackagedDatabaseCallback mPrepackagedDatabaseCallback;
 
         /** The Executor used to run database queries. This should be background-threaded. */
         private Executor mQueryExecutor;
@@ -629,8 +629,8 @@ public abstract class RoomDatabase {
         @SuppressLint("BuilderSetStyle") // To keep naming consistency.
         public Builder<T> createFromAsset(
                 @NonNull String databaseFilePath,
-                @NonNull PrepackagedCallback callback) {
-            mPrepackagedCallback = callback;
+                @NonNull PrepackagedDatabaseCallback callback) {
+            mPrepackagedDatabaseCallback = callback;
             mCopyFromAssetPath = databaseFilePath;
             return this;
         }
@@ -686,8 +686,8 @@ public abstract class RoomDatabase {
         @SuppressLint({"BuilderSetStyle", "StreamFiles"}) // To keep naming consistency.
         public Builder<T> createFromFile(
                 @NonNull File databaseFile,
-                @NonNull PrepackagedCallback callback) {
-            mPrepackagedCallback = callback;
+                @NonNull PrepackagedDatabaseCallback callback) {
+            mPrepackagedDatabaseCallback = callback;
             mCopyFromFile = databaseFile;
             return this;
         }
@@ -757,8 +757,8 @@ public abstract class RoomDatabase {
         @SuppressLint({"BuilderSetStyle", "LambdaLast"}) // To keep naming consistency.
         public Builder<T> createFromInputStream(
                 @NonNull Callable<InputStream> inputStreamCallable,
-                @NonNull PrepackagedCallback callback) {
-            mPrepackagedCallback = callback;
+                @NonNull PrepackagedDatabaseCallback callback) {
+            mPrepackagedDatabaseCallback = callback;
             mCopyFromInputStream = inputStreamCallable;
             return this;
         }
@@ -1096,7 +1096,7 @@ public abstract class RoomDatabase {
                             mCopyFromAssetPath,
                             mCopyFromFile,
                             mCopyFromInputStream,
-                            mPrepackagedCallback);
+                            mPrepackagedDatabaseCallback);
             T db = Room.getGeneratedImplementation(mDatabaseClass, DB_IMPL_SUFFIX);
             db.init(configuration);
             return db;
@@ -1233,13 +1233,13 @@ public abstract class RoomDatabase {
     /**
      * Callback for {@link Builder#createFromAsset(String)}, {@link Builder#createFromFile(File)}
      * and {@link Builder#createFromInputStream(Callable)}
-     *
+     * <p>
      * This callback will be invoked after the pre-package DB is copied but before Room had
      * a chance to open it and therefore before the {@link RoomDatabase.Callback} methods are
      * invoked. This callback can be useful for updating the pre-package DB schema to satisfy
      * Room's schema validation.
      */
-    public abstract static class PrepackagedCallback {
+    public abstract static class PrepackagedDatabaseCallback {
 
         /**
          * Called when the pre-packaged database has been copied.

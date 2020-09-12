@@ -23,13 +23,14 @@ import androidx.compose.ui.MeasureScope
 import androidx.compose.ui.Placeable
 import androidx.compose.ui.focus.ExperimentalFocus
 import androidx.compose.ui.focus.FocusState
+import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.toRect
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.input.pointer.PointerInputFilter
 import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.platform.NativeRectF
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -66,7 +67,7 @@ internal abstract class LayoutNodeWrapper(
             if (invalidateLayerOnBoundsChange &&
                 (value.width != _measureResult?.width || value.height != _measureResult?.height)
             ) {
-                findLayer()?.invalidate()
+                invalidateLayer()
             }
             _measureResult = value
             measuredSize = IntSize(measureResult.width, measureResult.height)
@@ -75,7 +76,7 @@ internal abstract class LayoutNodeWrapper(
     var position: IntOffset = IntOffset.Zero
         internal set(value) {
             if (invalidateLayerOnBoundsChange && value != field) {
-                findLayer()?.invalidate()
+                invalidateLayer()
             }
             field = value
         }
@@ -90,8 +91,10 @@ internal abstract class LayoutNodeWrapper(
     // wrapped, but is not interested in the position of the wrapped of the wrapped.
     var isShallowPlacing = false
 
-    // TODO(mount): This is not thread safe.
-    private var rectCache: NativeRectF? = null
+    private var _rectCache: MutableRect? = null
+    private val rectCache: MutableRect get() = _rectCache ?: MutableRect(0f, 0f, 0f, 0f).also {
+        _rectCache = it
+    }
 
     /**
      * Whether a pointer that is relative to the device screen is in the bounds of this
@@ -244,7 +247,7 @@ internal abstract class LayoutNodeWrapper(
      * Modifies bounds to be in the parent LayoutNodeWrapper's coordinates, including clipping,
      * scaling, etc.
      */
-    protected open fun rectInParent(bounds: NativeRectF) {
+    protected open fun rectInParent(bounds: MutableRect) {
         val x = position.x
         bounds.left += x
         bounds.right += x
@@ -257,16 +260,17 @@ internal abstract class LayoutNodeWrapper(
     override fun childBoundingBox(child: LayoutCoordinates): Rect {
         check(isAttached) { ExpectAttachedLayoutCoordinates }
         check(child.isAttached) { "Child $child is not attached!" }
-        val rectF = rectCache ?: NativeRectF().also { rectCache = it }
-        rectF.set(
-            0f,
-            0f,
-            child.size.width.toFloat(),
-            child.size.height.toFloat()
-        )
+        val bounds = rectCache
+        bounds.left = 0f
+        bounds.top = 0f
+        bounds.right = child.size.width.toFloat()
+        bounds.bottom = child.size.height.toFloat()
         var wrapper = child as LayoutNodeWrapper
         while (wrapper !== this) {
-            wrapper.rectInParent(rectF)
+            wrapper.rectInParent(bounds)
+            if (bounds.isEmpty) {
+                return Rect.Zero
+            }
 
             val parent = wrapper.wrappedBy
             check(parent != null) {
@@ -274,22 +278,17 @@ internal abstract class LayoutNodeWrapper(
             }
             wrapper = parent
         }
-        return Rect(
-            left = rectF.left,
-            top = rectF.top,
-            right = rectF.right,
-            bottom = rectF.bottom
-        )
+        return bounds.toRect()
     }
 
     /**
-     * Returns the layer that this wrapper will draw into.
+     * Invalidates the layer that this wrapper will draw into.
      */
-    open fun findLayer(): OwnedLayer? {
-        return if (layoutNode.innerLayerWrapper != null) {
-            wrappedBy?.findLayer()
+    open fun invalidateLayer() {
+        if (layoutNode.innerLayerWrapper != null) {
+            wrappedBy?.invalidateLayer()
         } else {
-            layoutNode.findLayer()
+            layoutNode.invalidateLayer()
         }
     }
 

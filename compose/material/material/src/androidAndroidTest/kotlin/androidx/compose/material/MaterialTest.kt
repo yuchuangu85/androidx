@@ -16,7 +16,6 @@
 
 package androidx.compose.material
 
-import androidx.compose.foundation.layout.DpConstraints
 import androidx.compose.foundation.layout.Stack
 import androidx.compose.foundation.layout.preferredSizeIn
 import androidx.compose.foundation.text.FirstBaseline
@@ -30,6 +29,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.ui.test.ComposeTestRule
+import androidx.ui.test.ComposeTestRuleJUnit
 import androidx.ui.test.SemanticsNodeInteraction
 import androidx.ui.test.assertHeightIsEqualTo
 import androidx.ui.test.assertIsEqualTo
@@ -37,9 +37,8 @@ import androidx.ui.test.assertWidthIsEqualTo
 import androidx.ui.test.getAlignmentLinePosition
 import androidx.ui.test.onNodeWithTag
 import androidx.ui.test.onRoot
-import androidx.ui.test.runOnIdle
 
-fun ComposeTestRule.setMaterialContent(
+fun ComposeTestRuleJUnit.setMaterialContent(
     modifier: Modifier = Modifier,
     composable: @Composable () -> Unit
 ) {
@@ -75,7 +74,7 @@ fun SemanticsNodeInteraction.assertWidthFillsRoot(): SemanticsNodeInteraction {
     return this
 }
 
-fun rootWidth(): Dp {
+fun ComposeTestRule.rootWidth(): Dp {
     val nodeInteraction = onRoot()
     val node = nodeInteraction.fetchSemanticsNode("Failed to get screen width")
     @OptIn(ExperimentalLayoutNodeApi::class)
@@ -86,7 +85,7 @@ fun rootWidth(): Dp {
     }
 }
 
-fun rootHeight(): Dp {
+fun ComposeTestRule.rootHeight(): Dp {
     val nodeInteraction = onRoot()
     val node = nodeInteraction.fetchSemanticsNode("Failed to get screen height")
     @OptIn(ExperimentalLayoutNodeApi::class)
@@ -100,10 +99,12 @@ fun rootHeight(): Dp {
 /**
  * Constant to emulate very big but finite constraints
  */
-val BigTestConstraints = DpConstraints(maxWidth = 5000.dp, maxHeight = 5000.dp)
+val BigTestMaxWidth = 5000.dp
+val BigTestMaxHeight = 5000.dp
 
-fun ComposeTestRule.setMaterialContentForSizeAssertions(
-    parentConstraints: DpConstraints = BigTestConstraints,
+fun ComposeTestRuleJUnit.setMaterialContentForSizeAssertions(
+    parentMaxWidth: Dp = BigTestMaxWidth,
+    parentMaxHeight: Dp = BigTestMaxHeight,
     // TODO : figure out better way to make it flexible
     children: @Composable () -> Unit
 ): SemanticsNodeInteraction {
@@ -111,8 +112,12 @@ fun ComposeTestRule.setMaterialContentForSizeAssertions(
         MaterialTheme {
             Surface {
                 Stack {
-                    Stack(Modifier.preferredSizeIn(parentConstraints)
-                        .testTag("containerForSizeAssertion")) {
+                    Stack(
+                        Modifier.preferredSizeIn(
+                            maxWidth = parentMaxWidth,
+                            maxHeight = parentMaxHeight
+                        ).testTag("containerForSizeAssertion")
+                    ) {
                         children()
                     }
                 }

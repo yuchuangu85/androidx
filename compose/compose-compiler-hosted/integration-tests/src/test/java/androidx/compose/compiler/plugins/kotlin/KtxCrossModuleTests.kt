@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.backend.common.output.OutputFile
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.config.CompilerConfiguration
 import org.jetbrains.kotlin.config.JVMConfigurationKeys
+import org.junit.Ignore
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
@@ -36,6 +37,72 @@ import java.net.URLClassLoader
     maxSdk = 23
 )
 class KtxCrossModuleTests : AbstractCodegenTest() {
+
+    @Test
+    @Ignore("b/165674304")
+    fun testInlineFunctionDefaultArgument(): Unit = ensureSetup {
+        compile(
+            mapOf("library module" to mapOf (
+                "x/library.kt" to """
+                    package x
+
+                    import androidx.compose.runtime.Composable
+
+                    @Composable
+                    inline fun f(x: () -> Unit = { println("default") }) {
+                      x()
+                    }
+                """.trimIndent()
+            ),
+            "Main" to mapOf(
+                "y/User.kt" to """
+                    package y
+
+                    import x.f
+                    import androidx.compose.runtime.Composable
+
+                    @Composable
+                    fun g() {
+                      f {
+                        println("non-default")
+                      }
+                    }
+                """.trimIndent()
+            ))
+        )
+    }
+
+    @Test
+    @Ignore("b/165674304")
+    fun testInlineFunctionDefaultArgument2(): Unit = ensureSetup {
+        compile(
+            mapOf("library module" to mapOf (
+                "x/library.kt" to """
+                    package x
+
+                    import androidx.compose.runtime.Composable
+
+                    @Composable
+                    inline fun f(x: () -> Unit = { println("default") }) {
+                      x()
+                    }
+                """.trimIndent()
+            ),
+            "Main" to mapOf(
+                "y/User.kt" to """
+                    package y
+
+                    import x.f
+                    import androidx.compose.runtime.Composable
+
+                    @Composable
+                    fun g() {
+                      f()
+                    }
+                """.trimIndent()
+            ))
+        )
+    }
 
     @Test
     fun testAccessibilityBridgeGeneration(): Unit = ensureSetup {
@@ -154,12 +221,12 @@ class KtxCrossModuleTests : AbstractCodegenTest() {
             // Check that the composable functions were properly mangled
             assert(
                 it.contains(
-                    "public final static foo-YmYloa0(ILandroidx/compose/runtime/Composer;II)V"
+                    "public final static foo-s0xCT_s(ILandroidx/compose/runtime/Composer;I)V"
                 )
             )
             assert(
                 it.contains(
-                    "public final static foo-xHwECpg(ILandroidx/compose/runtime/Composer;II)V"
+                    "public final static foo-N8p8aEo(ILandroidx/compose/runtime/Composer;I)V"
                 )
             )
             // Check that we didn't leave any references to the original name, which probably
@@ -821,12 +888,11 @@ class KtxCrossModuleTests : AbstractCodegenTest() {
         val composeMethod = instanceClass.getMethod(
             "compose",
             Composer::class.java,
-            Int::class.java,
             Int::class.java
         )
 
-        return composeMulti({ composer, _, _ ->
-            composeMethod.invoke(instanceOfClass, composer, 0, 1)
+        return composeMulti({ composer, _ ->
+            composeMethod.invoke(instanceOfClass, composer, 1)
         }) {
             advanceMethod.invoke(instanceOfClass)
         }

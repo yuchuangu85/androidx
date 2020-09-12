@@ -16,6 +16,7 @@
 
 package androidx.compose.ui.input.pointer
 
+import androidx.compose.ui.node.InternalCoreApi
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.plus
 import androidx.compose.ui.util.annotation.VisibleForTesting
@@ -25,6 +26,7 @@ import androidx.compose.ui.util.fastForEach
  * Organizes pointers and the [PointerInputFilter]s that they hit into a hierarchy such that
  * [PointerInputChange]s can be dispatched to the [PointerInputFilter]s in a hierarchical fashion.
  */
+@OptIn(InternalCoreApi::class)
 internal class HitPathTracker {
 
     @VisibleForTesting
@@ -263,6 +265,7 @@ internal class HitPathTracker {
  * pointer or [PointerInputFilter] information.
  */
 @VisibleForTesting
+@OptIn(InternalCoreApi::class)
 internal open class NodeParent {
     val children: MutableSet<Node> = mutableSetOf()
 
@@ -384,6 +387,7 @@ internal open class NodeParent {
  * hit it (tracked as [PointerId]s).
  */
 @VisibleForTesting
+@OptIn(InternalCoreApi::class)
 internal class Node(val pointerInputFilter: PointerInputFilter) : NodeParent() {
 
     val pointerIds: MutableSet<PointerId> = mutableSetOf()
@@ -419,7 +423,7 @@ internal class Node(val pointerInputFilter: PointerInputFilter) : NodeParent() {
         //  to onPointerEvent).
 
         // Dispatch on the tunneling pass.
-        internalPointerEvent.tryDispatchToPointerInputFilter(pointerInputFilter, downPass)
+        internalPointerEvent.dispatchToPointerInputFilter(pointerInputFilter, downPass)
 
         // Dispatch to children.
         if (pointerInputFilter.isAttached) {
@@ -427,7 +431,7 @@ internal class Node(val pointerInputFilter: PointerInputFilter) : NodeParent() {
         }
 
         // Dispatch on the bubbling pass.
-        internalPointerEvent.tryDispatchToPointerInputFilter(pointerInputFilter, upPass)
+        internalPointerEvent.dispatchToPointerInputFilter(pointerInputFilter, upPass)
 
         // Put all of the relevant changes that were in the internalPointerEvent back into all of
         // the changes, and then set all of the changes back onto the internalPointerEvent.
@@ -507,7 +511,7 @@ internal class Node(val pointerInputFilter: PointerInputFilter) : NodeParent() {
      *
      * Is a no-op if [filter] is not attached or [pass] is null.
      */
-    private fun InternalPointerEvent.tryDispatchToPointerInputFilter(
+    private fun InternalPointerEvent.dispatchToPointerInputFilter(
         filter: PointerInputFilter,
         pass: PointerEventPass?
     ) {

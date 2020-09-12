@@ -117,12 +117,12 @@ class LayoutPaddingTest : LayoutTest() {
 
     /**
      * Tests the top-level [padding] modifier factory with a single [androidx.compose.foundation.layout
-     * .InnerPadding] argument, checking that padding is applied to a child when plenty of space
+     * .PaddingValues] argument, checking that padding is applied to a child when plenty of space
      * is available for both content and padding.
      */
     @Test
-    fun paddingInnerPaddingAppliedToChild() = with(density) {
-        val padding = InnerPadding(start = 1.dp, top = 3.dp, end = 6.dp, bottom = 10.dp)
+    fun paddingPaddingValuesAppliedToChild() = with(density) {
+        val padding = PaddingValues(start = 1.dp, top = 3.dp, end = 6.dp, bottom = 10.dp)
         testPaddingWithDifferentInsetsImplementation(
             padding.start, padding.top, padding.end, padding.bottom
         ) { child: @Composable () -> Unit ->
@@ -405,7 +405,7 @@ class LayoutPaddingTest : LayoutTest() {
             Stack(Modifier.fillMaxSize()) {
                 ConstrainedBox(
                     constraints = DpConstraints.fixed(sizeDp, sizeDp),
-                    modifier = Modifier.gravity(Alignment.Center)
+                    modifier = Modifier.align(Alignment.Center)
                 ) {
                     val children = @Composable {
                         Container(Modifier.onPositioned { coordinates: LayoutCoordinates ->
@@ -451,7 +451,7 @@ class LayoutPaddingTest : LayoutTest() {
             Stack(Modifier.fillMaxSize()) {
                 ConstrainedBox(
                     constraints = DpConstraints.fixed(sizeDp, sizeDp),
-                    modifier = Modifier.gravity(Alignment.Center)
+                    modifier = Modifier.align(Alignment.Center)
                 ) {
                     val children = @Composable {
                         Container(Modifier.onPositioned { coordinates: LayoutCoordinates ->
@@ -504,7 +504,7 @@ class LayoutPaddingTest : LayoutTest() {
             Stack(Modifier.fillMaxSize()) {
                 ConstrainedBox(
                     constraints = DpConstraints.fixed(sizeDp, sizeDp),
-                    modifier = Modifier.gravity(Alignment.Center)
+                    modifier = Modifier.align(Alignment.Center)
                 ) {
                     paddingContainer {
                         Container(Modifier.onPositioned { coordinates: LayoutCoordinates ->

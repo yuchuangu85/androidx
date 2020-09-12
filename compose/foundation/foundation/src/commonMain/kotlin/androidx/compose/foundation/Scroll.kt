@@ -29,7 +29,7 @@ import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.InnerPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.InternalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -226,7 +226,7 @@ class ScrollState(
  * @param modifier modifier for this [ScrollableColumn]
  * @param scrollState state of the scroll, such as current offset and max offset
  * @param verticalArrangement The vertical arrangement of the layout's children
- * @param horizontalGravity The horizontal gravity of the layout's children
+ * @param horizontalAlignment The horizontal alignment of the layout's children
  * @param reverseScrollDirection reverse the direction of scrolling, when `true`, [ScrollState
  * .value] = 0 will mean bottom, when `false`, [ScrollState.value] = 0 will mean top
  * @param isScrollEnabled param to enable or disable touch input scrolling. If you own
@@ -240,10 +240,10 @@ fun ScrollableColumn(
     modifier: Modifier = Modifier,
     scrollState: ScrollState = rememberScrollState(0f),
     verticalArrangement: Arrangement.Vertical = Arrangement.Top,
-    horizontalGravity: Alignment.Horizontal = Alignment.Start,
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     reverseScrollDirection: Boolean = false,
     isScrollEnabled: Boolean = true,
-    contentPadding: InnerPadding = InnerPadding(0.dp),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
     children: @Composable ColumnScope.() -> Unit
 ) {
     Column(
@@ -256,7 +256,7 @@ fun ScrollableColumn(
             .clipToBounds()
             .padding(contentPadding),
         verticalArrangement = verticalArrangement,
-        horizontalGravity = horizontalGravity,
+        horizontalAlignment = horizontalAlignment,
         children = children
     )
 }
@@ -271,7 +271,7 @@ fun ScrollableColumn(
  * @param modifier modifier for this [ScrollableRow]
  * @param scrollState state of the scroll, such as current offset and max offset
  * @param horizontalArrangement The horizontal arrangement of the layout's children
- * @param verticalGravity The vertical gravity of the layout's children
+ * @param verticalAlignment The vertical alignment of the layout's children
  * @param reverseScrollDirection reverse the direction of scrolling, when `true`, [ScrollState
  * .value] = 0 will mean right, when `false`, [ScrollState.value] = 0 will mean left
  * @param isScrollEnabled param to enable or disable touch input scrolling. If you own
@@ -285,10 +285,10 @@ fun ScrollableRow(
     modifier: Modifier = Modifier,
     scrollState: ScrollState = rememberScrollState(0f),
     horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
-    verticalGravity: Alignment.Vertical = Alignment.Top,
+    verticalAlignment: Alignment.Vertical = Alignment.Top,
     reverseScrollDirection: Boolean = false,
     isScrollEnabled: Boolean = true,
-    contentPadding: InnerPadding = InnerPadding(0.dp),
+    contentPadding: PaddingValues = PaddingValues(0.dp),
     children: @Composable RowScope.() -> Unit
 ) {
     Row(
@@ -301,7 +301,7 @@ fun ScrollableRow(
             .clipToBounds()
             .padding(contentPadding),
         horizontalArrangement = horizontalArrangement,
-        verticalGravity = verticalGravity,
+        verticalAlignment = verticalAlignment,
         children = children
     )
 }

@@ -20,7 +20,7 @@ import android.content.Context
 import android.graphics.Color
 import androidx.wear.complications.rendering.ComplicationDrawable
 import androidx.wear.watchface.ComplicationDrawableRenderer
-import androidx.wear.watchface.SystemState
+import androidx.wear.watchface.WatchState
 
 private fun Context.getStyleResourceId(
     styleResourceId: Int,
@@ -68,14 +68,14 @@ class ColorStyle(
     }
 }
 
-class WatchFaceStyle(
+class WatchFaceColorStyle(
     val activeStyle: ColorStyle,
     val ambientStyle: ColorStyle,
     private val complicationResourceId: Int
 ) {
     companion object {
         fun create(context: Context, baseStyleName: String) =
-            WatchFaceStyle(
+            WatchFaceColorStyle(
                 ColorStyle.create(context, baseStyleName + "_active"),
                 ColorStyle.create(context, baseStyleName + "_ambient"),
                 getComplicationResourceId(context, baseStyleName)
@@ -90,9 +90,9 @@ class WatchFaceStyle(
         }
     }
 
-    fun getComplicationDrawableRenderer(context: Context, systemState: SystemState) =
+    fun getComplicationDrawableRenderer(context: Context, watchState: WatchState) =
         ComplicationDrawableRenderer(
             ComplicationDrawable.getDrawable(context, complicationResourceId)!!,
-            systemState
+            watchState
         )
 }

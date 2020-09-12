@@ -31,16 +31,15 @@ import androidx.wear.watchface.CanvasRenderer
 import androidx.wear.watchface.CanvasType
 import androidx.wear.watchface.Complication
 import androidx.wear.watchface.ComplicationDrawableRenderer
-import androidx.wear.watchface.ComplicationSlots
-import androidx.wear.watchface.FixedBounds
-import androidx.wear.watchface.SystemApi
-import androidx.wear.watchface.SystemState
+import androidx.wear.watchface.ComplicationsHolder
 import androidx.wear.watchface.WatchFace
+import androidx.wear.watchface.WatchFaceHost
 import androidx.wear.watchface.WatchFaceService
 import androidx.wear.watchface.WatchFaceType
-import androidx.wear.watchfacestyle.ListViewUserStyleCategory
-import androidx.wear.watchfacestyle.UserStyleCategory
-import androidx.wear.watchfacestyle.UserStyleManager
+import androidx.wear.watchface.WatchState
+import androidx.wear.watchface.style.ListUserStyleCategory
+import androidx.wear.watchface.style.UserStyleCategory
+import androidx.wear.watchface.style.UserStyleRepository
 
 @Sampled
 fun kDocCreateExampleWatchFaceService(): WatchFaceService {
@@ -48,47 +47,47 @@ fun kDocCreateExampleWatchFaceService(): WatchFaceService {
     class ExampleCanvasWatchFaceService : WatchFaceService() {
         override fun createWatchFace(
             surfaceHolder: SurfaceHolder,
-            systemApi: SystemApi,
-            systemState: SystemState
+            watchFaceHost: WatchFaceHost,
+            watchState: WatchState
         ): WatchFace {
-            val styleManager = UserStyleManager(
+            val userStyleRepository = UserStyleRepository(
                 listOf(
-                    ListViewUserStyleCategory(
+                    ListUserStyleCategory(
                         "color_style_category",
                         "Colors",
                         "Watchface colorization",
                         icon = null,
                         options = listOf(
-                            ListViewUserStyleCategory.ListViewOption(
+                            ListUserStyleCategory.ListOption(
                                 "red_style",
                                 "Red",
                                 icon = null
                             ),
-                            ListViewUserStyleCategory.ListViewOption(
+                            ListUserStyleCategory.ListOption(
                                 "green_style",
                                 "Green",
                                 icon = null
                             ),
-                            ListViewUserStyleCategory.ListViewOption(
+                            ListUserStyleCategory.ListOption(
                                 "bluestyle",
                                 "Blue",
                                 icon = null
                             )
                         )
                     ),
-                    ListViewUserStyleCategory(
+                    ListUserStyleCategory(
                         "hand_style_category",
                         "Hand Style",
                         "Hand visual look",
                         icon = null,
                         options = listOf(
-                            ListViewUserStyleCategory.ListViewOption(
+                            ListUserStyleCategory.ListOption(
                                 "classic_style", "Classic", icon = null
                             ),
-                            ListViewUserStyleCategory.ListViewOption(
+                            ListUserStyleCategory.ListOption(
                                 "modern_style", "Modern", icon = null
                             ),
-                            ListViewUserStyleCategory.ListViewOption(
+                            ListUserStyleCategory.ListOption(
                                 "gothic_style",
                                 "Gothic",
                                 icon = null
@@ -97,14 +96,13 @@ fun kDocCreateExampleWatchFaceService(): WatchFaceService {
                     )
                 )
             )
-            val complicationSlots = ComplicationSlots(
+            val complicationSlots = ComplicationsHolder(
                 listOf(
-                    Complication(
+                    Complication.Builder(
                         /*id */ 0,
-                        FixedBounds(RectF(0.15625f, 0.1875f, 0.84375f, 0.3125f)),
                         ComplicationDrawableRenderer(
                             ComplicationDrawable(this),
-                            systemState
+                            watchState
                         ),
                         intArrayOf(
                             ComplicationData.TYPE_RANGED_VALUE,
@@ -113,17 +111,15 @@ fun kDocCreateExampleWatchFaceService(): WatchFaceService {
                             ComplicationData.TYPE_ICON,
                             ComplicationData.TYPE_SMALL_IMAGE
                         ),
-                        Complication.DefaultComplicationProvider(SystemProviders.DAY_OF_WEEK),
-                        ComplicationData.TYPE_SHORT_TEXT
-                    ),
-                    Complication(
+                        Complication.DefaultComplicationProvider(SystemProviders.DAY_OF_WEEK)
+                    ).setUnitSquareBounds(RectF(0.15625f, 0.1875f, 0.84375f, 0.3125f))
+                        .setDefaultProviderType(ComplicationData.TYPE_SHORT_TEXT)
+                        .build(),
+                    Complication.Builder(
                         /*id */ 1,
-                        FixedBounds(
-                            RectF(0.1f, 0.5625f, 0.35f, 0.8125f)
-                        ),
                         ComplicationDrawableRenderer(
                             ComplicationDrawable(this),
-                            systemState
+                            watchState
                         ),
                         intArrayOf(
                             ComplicationData.TYPE_RANGED_VALUE,
@@ -132,30 +128,32 @@ fun kDocCreateExampleWatchFaceService(): WatchFaceService {
                             ComplicationData.TYPE_ICON,
                             ComplicationData.TYPE_SMALL_IMAGE
                         ),
-                        Complication.DefaultComplicationProvider(SystemProviders.STEP_COUNT),
-                        ComplicationData.TYPE_SHORT_TEXT
-                    )
+                        Complication.DefaultComplicationProvider(SystemProviders.STEP_COUNT)
+                    ).setUnitSquareBounds(RectF(0.1f, 0.5625f, 0.35f, 0.8125f))
+                        .setDefaultProviderType(ComplicationData.TYPE_SHORT_TEXT)
+                        .build()
                 )
             )
 
             val renderer = object : CanvasRenderer(
                 surfaceHolder,
-                styleManager,
-                systemState,
+                userStyleRepository,
+                watchState,
                 CanvasType.HARDWARE
             ) {
                 init {
-                    styleManager.addUserStyleListener(object : UserStyleManager.UserStyleListener {
-                        override fun onUserStyleChanged(
-                            userStyle: Map<UserStyleCategory, UserStyleCategory.Option>
-                        ) {
-                            // `userStyle` will contain two userStyle categories with options from
-                            // the lists above. ...
-                        }
-                    })
+                    userStyleRepository.addUserStyleListener(
+                        object : UserStyleRepository.UserStyleListener {
+                            override fun onUserStyleChanged(
+                                userStyle: Map<UserStyleCategory, UserStyleCategory.Option>
+                            ) {
+                                // `userStyle` will contain two userStyle categories with options
+                                // from the lists above. ...
+                            }
+                        })
                 }
 
-                override fun onDraw(
+                override fun render(
                     canvas: Canvas,
                     bounds: Rect,
                     calendar: Calendar
@@ -164,15 +162,15 @@ fun kDocCreateExampleWatchFaceService(): WatchFaceService {
                 }
             }
 
-            return object : WatchFace(
+            return WatchFace.Builder(
                 WatchFaceType.ANALOG,
                 /* interactiveUpdateRateMillis */ 16,
-                styleManager,
+                userStyleRepository,
                 complicationSlots,
                 renderer,
-                systemApi,
-                systemState
-            ) {}
+                watchFaceHost,
+                watchState
+            ).build()
         }
     }
 

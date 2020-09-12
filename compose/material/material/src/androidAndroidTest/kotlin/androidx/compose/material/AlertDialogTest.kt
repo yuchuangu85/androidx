@@ -29,8 +29,6 @@ import androidx.ui.test.assertContainsColor
 import androidx.ui.test.captureToBitmap
 import androidx.ui.test.createComposeRule
 import androidx.ui.test.isDialog
-import androidx.ui.test.onNode
-import androidx.ui.test.runOnIdle
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
 import org.junit.Test
@@ -43,12 +41,12 @@ import org.junit.runners.JUnit4
 class AlertDialogTest {
 
     @get:Rule
-    val composeTestRule = createComposeRule(disableTransitions = true)
+    val rule = createComposeRule(disableTransitions = true)
 
     @Test
     fun customStyleProperties_shouldApply() {
         var contentColor = Color.Unset
-        composeTestRule.setContent {
+        rule.setContent {
             AlertDialog(
                 onDismissRequest = {},
                 modifier = Modifier.border(10.dp, Color.Blue),
@@ -63,13 +61,13 @@ class AlertDialogTest {
         }
 
         // Assert background
-        onNode(isDialog())
+        rule.onNode(isDialog())
             .captureToBitmap()
             .assertContainsColor(Color.Yellow) // Background
             .assertContainsColor(Color.Blue) // Modifier border
 
         // Assert content color
-        runOnIdle {
+        rule.runOnIdle {
             // Reset opacity as that is changed by the emphasis
             assertThat(contentColor.copy(alpha = 1f)).isEqualTo(Color.Red)
         }

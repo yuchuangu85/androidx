@@ -16,6 +16,7 @@
 
 package androidx.wear.watchface.samples
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -31,17 +32,18 @@ import androidx.wear.complications.SystemProviders
 import androidx.wear.watchface.CanvasRenderer
 import androidx.wear.watchface.CanvasType
 import androidx.wear.watchface.Complication
-import androidx.wear.watchface.ComplicationSlots
+import androidx.wear.watchface.ComplicationsHolder
 import androidx.wear.watchface.DrawMode
-import androidx.wear.watchface.FixedBounds
-import androidx.wear.watchface.SystemApi
-import androidx.wear.watchface.SystemState
 import androidx.wear.watchface.WatchFace
+import androidx.wear.watchface.WatchFaceHost
 import androidx.wear.watchface.WatchFaceService
 import androidx.wear.watchface.WatchFaceType
-import androidx.wear.watchfacestyle.ListViewUserStyleCategory
-import androidx.wear.watchfacestyle.UserStyleCategory
-import androidx.wear.watchfacestyle.UserStyleManager
+import androidx.wear.watchface.WatchState
+import androidx.wear.watchface.style.BooleanUserStyleCategory
+import androidx.wear.watchface.style.DoubleRangeUserStyleCategory
+import androidx.wear.watchface.style.ListUserStyleCategory
+import androidx.wear.watchface.style.UserStyleCategory
+import androidx.wear.watchface.style.UserStyleRepository
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -66,37 +68,54 @@ private const val NUMBER_RADIUS_FRACTION = 0.45f
 class ExampleCanvasWatchFaceService : WatchFaceService() {
     override fun createWatchFace(
         surfaceHolder: SurfaceHolder,
-        systemApi: SystemApi,
-        systemState: SystemState
+        watchFaceHost: WatchFaceHost,
+        watchState: WatchState
     ): WatchFace {
-        val watchFaceStyle = WatchFaceStyle.create(this, "red_style")
-        val colorStyleCategory = ListViewUserStyleCategory(
+        val watchFaceStyle = WatchFaceColorStyle.create(this, "red_style")
+        val colorStyleCategory = ListUserStyleCategory(
             "color_style_category",
             "Colors",
             "Watchface colorization",
             icon = null,
             options = listOf(
-                ListViewUserStyleCategory.ListViewOption(
+                ListUserStyleCategory.ListOption(
                     "red_style",
                     "Red",
                     Icon.createWithResource(this, R.drawable.red_style)
                 ),
-                ListViewUserStyleCategory.ListViewOption(
+                ListUserStyleCategory.ListOption(
                     "green_style",
                     "Green",
                     Icon.createWithResource(this, R.drawable.green_style)
                 )
             )
         )
-        val styleManager = UserStyleManager(
-            listOf(colorStyleCategory)
+        val drawHourPipsStyleCategory =
+            BooleanUserStyleCategory(
+                "draw_hour_pips_style_category",
+                "Hour Pips",
+                "Whether to draw or not",
+                null,
+                true
+            )
+        val watchHandLengthStyleCategory =
+            DoubleRangeUserStyleCategory(
+                "watch_hand_length_style_category",
+                "Hand length",
+                "Scale of watch hands",
+                null,
+                0.25,
+                1.0,
+                0.75
+            )
+        val userStyleRepository = UserStyleRepository(
+            listOf(colorStyleCategory, drawHourPipsStyleCategory, watchHandLengthStyleCategory)
         )
-        val complicationSlots = ComplicationSlots(
+        val complicationSlots = ComplicationsHolder(
             listOf(
-                Complication(
+                Complication.Builder(
                     EXAMPLE_CANVAS_WATCHFACE_LEFT_COMPLICATION_ID,
-                    FixedBounds(RectF(0.2f, 0.4f, 0.4f, 0.6f)),
-                    watchFaceStyle.getComplicationDrawableRenderer(this, systemState),
+                    watchFaceStyle.getComplicationDrawableRenderer(this, watchState),
                     intArrayOf(
                         ComplicationData.TYPE_RANGED_VALUE,
                         ComplicationData.TYPE_LONG_TEXT,
@@ -104,13 +123,13 @@ class ExampleCanvasWatchFaceService : WatchFaceService() {
                         ComplicationData.TYPE_ICON,
                         ComplicationData.TYPE_SMALL_IMAGE
                     ),
-                    Complication.DefaultComplicationProvider(SystemProviders.DAY_OF_WEEK),
-                    ComplicationData.TYPE_SHORT_TEXT
-                ),
-                Complication(
+                    Complication.DefaultComplicationProvider(SystemProviders.DAY_OF_WEEK)
+                ).setUnitSquareBounds(RectF(0.2f, 0.4f, 0.4f, 0.6f))
+                    .setDefaultProviderType(ComplicationData.TYPE_SHORT_TEXT)
+                    .build(),
+                Complication.Builder(
                     EXAMPLE_CANVAS_WATCHFACE_RIGHT_COMPLICATION_ID,
-                    FixedBounds(RectF(0.6f, 0.4f, 0.8f, 0.6f)),
-                    watchFaceStyle.getComplicationDrawableRenderer(this, systemState),
+                    watchFaceStyle.getComplicationDrawableRenderer(this, watchState),
                     intArrayOf(
                         ComplicationData.TYPE_RANGED_VALUE,
                         ComplicationData.TYPE_LONG_TEXT,
@@ -118,31 +137,34 @@ class ExampleCanvasWatchFaceService : WatchFaceService() {
                         ComplicationData.TYPE_ICON,
                         ComplicationData.TYPE_SMALL_IMAGE
                     ),
-                    Complication.DefaultComplicationProvider(SystemProviders.STEP_COUNT),
-                    ComplicationData.TYPE_SHORT_TEXT
-                )
+                    Complication.DefaultComplicationProvider(SystemProviders.STEP_COUNT)
+                ).setUnitSquareBounds(RectF(0.6f, 0.4f, 0.8f, 0.6f))
+                    .setDefaultProviderType(ComplicationData.TYPE_SHORT_TEXT)
+                    .build()
             )
         )
         val renderer = ExampleCanvasRenderer(
             surfaceHolder,
             this,
             watchFaceStyle,
-            styleManager,
-            systemState,
+            userStyleRepository,
+            watchState,
             colorStyleCategory,
+            drawHourPipsStyleCategory,
+            watchHandLengthStyleCategory,
             complicationSlots
         )
 
-        return WatchFace(
+        return WatchFace.Builder(
             WatchFaceType.ANALOG,
             /** mInteractiveUpdateRateMillis */
             16,
-            styleManager,
+            userStyleRepository,
             complicationSlots,
             renderer,
-            systemApi,
-            systemState
-        )
+            watchFaceHost,
+            watchState
+        ).build()
     }
 }
 
@@ -152,12 +174,14 @@ const val EXAMPLE_CANVAS_WATCHFACE_RIGHT_COMPLICATION_ID = 102
 class ExampleCanvasRenderer(
     surfaceHolder: SurfaceHolder,
     private val context: Context,
-    private var watchFaceStyle: WatchFaceStyle,
-    userStyleManager: UserStyleManager,
-    private val systemState: SystemState,
-    private val colorStyleCategory: ListViewUserStyleCategory,
-    private val complicationSlots: ComplicationSlots
-) : CanvasRenderer(surfaceHolder, userStyleManager, systemState, CanvasType.HARDWARE) {
+    private var watchFaceColorStyle: WatchFaceColorStyle,
+    userStyleRepository: UserStyleRepository,
+    private val watchState: WatchState,
+    private val colorStyleCategory: ListUserStyleCategory,
+    private val drawPipsStyleCategory: BooleanUserStyleCategory,
+    private val watchHandLengthStyleCategoryDouble: DoubleRangeUserStyleCategory,
+    private val complicationsHolder: ComplicationsHolder
+) : CanvasRenderer(surfaceHolder, userStyleRepository, watchState, CanvasType.HARDWARE) {
 
     private val clockHandPaint = Paint().apply {
         isAntiAlias = true
@@ -197,31 +221,45 @@ class ExampleCanvasRenderer(
     private lateinit var minuteHandBorder: Path
     private lateinit var secondHand: Path
 
+    private var drawHourPips = true
+    private var watchHandScale = 1.0f
+
     init {
-        userStyleManager.addUserStyleListener(
-            object : UserStyleManager.UserStyleListener {
+        userStyleRepository.addUserStyleListener(
+            object : UserStyleRepository.UserStyleListener {
+                @SuppressLint("SyntheticAccessor")
                 override fun onUserStyleChanged(
                     userStyle: Map<UserStyleCategory, UserStyleCategory.Option>
                 ) {
-                    val option = userStyle[colorStyleCategory]!!
-                    watchFaceStyle = WatchFaceStyle.create(context, option.id)
+                    watchFaceColorStyle =
+                        WatchFaceColorStyle.create(context, userStyle[colorStyleCategory]!!.id)
 
-                    // Apply the userStyle to the complications. ComplicationDrawables for each of the
-                    // styles are defined in XML so we need to replace the complication's drawables.
-                    for ((_, complication) in complicationSlots.complications) {
-                        complication.complicationRenderer =
-                            watchFaceStyle.getComplicationDrawableRenderer(context, systemState)
+                    // Apply the userStyle to the complications. ComplicationDrawables for each of
+                    // the styles are defined in XML so we need to replace the complication's
+                    // drawables.
+                    for ((_, complication) in complicationsHolder.complications) {
+                        complication.renderer =
+                            watchFaceColorStyle.getComplicationDrawableRenderer(context, watchState)
                     }
+
+                    val drawPipsOption =
+                        userStyle[drawPipsStyleCategory]!! as BooleanUserStyleCategory.BooleanOption
+                    val watchHandLengthOption =
+                        userStyle[watchHandLengthStyleCategoryDouble]!! as
+                                DoubleRangeUserStyleCategory.DoubleRangeOption
+
+                    drawHourPips = drawPipsOption.value
+                    watchHandScale = watchHandLengthOption.value.toFloat()
                 }
             }
         )
     }
 
-    override fun onDraw(canvas: Canvas, bounds: Rect, calendar: Calendar) {
+    override fun render(canvas: Canvas, bounds: Rect, calendar: Calendar) {
         val style = if (drawMode == DrawMode.AMBIENT) {
-            watchFaceStyle.ambientStyle
+            watchFaceColorStyle.ambientStyle
         } else {
-            watchFaceStyle.activeStyle
+            watchFaceColorStyle.activeStyle
         }
 
         canvas.drawColor(style.backgroundColor)
@@ -229,7 +267,7 @@ class ExampleCanvasRenderer(
         drawComplications(canvas, calendar)
         drawClockHands(canvas, bounds, calendar, style)
 
-        if (drawMode != DrawMode.AMBIENT) {
+        if (drawMode != DrawMode.AMBIENT && drawHourPips) {
             drawNumberStyleOuterElement(canvas, bounds, style)
         }
     }
@@ -256,32 +294,92 @@ class ExampleCanvasRenderer(
         if (drawMode == DrawMode.AMBIENT) {
             clockHandPaint.style = Paint.Style.STROKE
             clockHandPaint.color = style.hourHandColor
+            canvas.scale(
+                watchHandScale,
+                watchHandScale,
+                bounds.exactCenterX(),
+                bounds.exactCenterY()
+            )
             canvas.rotate(hourRot, bounds.exactCenterX(), bounds.exactCenterY())
             canvas.drawPath(hourHandBorder, clockHandPaint)
             canvas.rotate(-hourRot, bounds.exactCenterX(), bounds.exactCenterY())
+            canvas.scale(
+                1.0f / watchHandScale,
+                1.0f / watchHandScale,
+                bounds.exactCenterX(),
+                bounds.exactCenterY()
+            )
 
             clockHandPaint.color = style.minuteHandColor
+            canvas.scale(
+                watchHandScale,
+                watchHandScale,
+                bounds.exactCenterX(),
+                bounds.exactCenterY()
+            )
             canvas.rotate(minuteRot, bounds.exactCenterX(), bounds.exactCenterY())
             canvas.drawPath(minuteHandBorder, clockHandPaint)
             canvas.rotate(-minuteRot, bounds.exactCenterX(), bounds.exactCenterY())
+            canvas.scale(
+                1.0f / watchHandScale,
+                1.0f / watchHandScale,
+                bounds.exactCenterX(),
+                bounds.exactCenterY()
+            )
         } else {
             clockHandPaint.style = Paint.Style.FILL
             clockHandPaint.color = style.hourHandColor
+            canvas.scale(
+                watchHandScale,
+                watchHandScale,
+                bounds.exactCenterX(),
+                bounds.exactCenterY()
+            )
             canvas.rotate(hourRot, bounds.exactCenterX(), bounds.exactCenterY())
             canvas.drawPath(hourHandFill, clockHandPaint)
             canvas.rotate(-hourRot, bounds.exactCenterX(), bounds.exactCenterY())
+            canvas.scale(
+                1.0f / watchHandScale,
+                1.0f / watchHandScale,
+                bounds.exactCenterX(),
+                bounds.exactCenterY()
+            )
 
             clockHandPaint.color = style.minuteHandColor
+            canvas.scale(
+                watchHandScale,
+                watchHandScale,
+                bounds.exactCenterX(),
+                bounds.exactCenterY()
+            )
             canvas.rotate(minuteRot, bounds.exactCenterX(), bounds.exactCenterY())
             canvas.drawPath(minuteHandFill, clockHandPaint)
             canvas.rotate(-minuteRot, bounds.exactCenterX(), bounds.exactCenterY())
+            canvas.scale(
+                1.0f / watchHandScale,
+                1.0f / watchHandScale,
+                bounds.exactCenterX(),
+                bounds.exactCenterY()
+            )
 
             val secondsRot = seconds / 60.0f * 360.0f
 
             clockHandPaint.color = style.secondsHandColor
+            canvas.scale(
+                watchHandScale,
+                watchHandScale,
+                bounds.exactCenterX(),
+                bounds.exactCenterY()
+            )
             canvas.rotate(secondsRot, bounds.exactCenterX(), bounds.exactCenterY())
             canvas.drawPath(secondHand, clockHandPaint)
             canvas.rotate(-secondsRot, bounds.exactCenterX(), bounds.exactCenterY())
+            canvas.scale(
+                1.0f / watchHandScale,
+                1.0f / watchHandScale,
+                bounds.exactCenterX(),
+                bounds.exactCenterY()
+            )
         }
 
         canvas.restore()
@@ -362,12 +460,12 @@ class ExampleCanvasRenderer(
 
     private fun drawComplications(canvas: Canvas, calendar: Calendar) {
         val screen = Rect(0, 0, canvas.width, canvas.height)
-        for ((_, complication) in complicationSlots.complications) {
+        for ((_, complication) in complicationsHolder.complications) {
             complication.draw(canvas, calendar, drawMode)
             if (drawMode == DrawMode.COMPLICATION_SELECT) {
                 drawComplicationSelectDashBorders(
                     canvas,
-                    complication.boundsProvider.computeBounds(complication, screen, calendar)
+                    complication.computeBounds(screen)
                 )
             }
         }

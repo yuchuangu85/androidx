@@ -19,13 +19,10 @@ import androidx.compose.runtime.Composable
 
 abstract class AppFrame {
 
-    var window: ComposeWindow? = null
-        protected set
+    abstract val window: ComposeWindow
 
     var invoker: AppFrame? = null
         protected set
-
-    var locked = false
 
     var title = ""
         protected set
@@ -45,6 +42,9 @@ abstract class AppFrame {
     var isCentered: Boolean = true
         protected set
 
+    var isClosed: Boolean = false
+        protected set
+
     val onDismissEvents = mutableListOf<() -> Unit>()
 
     abstract fun setPosition(x: Int, y: Int)
@@ -57,7 +57,13 @@ abstract class AppFrame {
 
     abstract fun close()
 
+    internal abstract fun dispose()
+
     internal abstract fun connectPair(window: AppFrame)
 
     internal abstract fun disconnectPair()
+
+    internal abstract fun lockWindow()
+
+    internal abstract fun unlockWindow()
 }

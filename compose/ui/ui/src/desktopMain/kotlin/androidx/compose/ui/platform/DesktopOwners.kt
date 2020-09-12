@@ -15,10 +15,9 @@
  */
 package androidx.compose.ui.platform
 
-import androidx.compose.runtime.Recomposer
-import androidx.compose.runtime.dispatch.DesktopUiDispatcher
 import androidx.compose.runtime.staticAmbientOf
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.mouse.MouseScrollEvent
 import androidx.compose.ui.input.pointer.PointerId
 import androidx.compose.ui.input.pointer.PointerInputData
 import androidx.compose.ui.input.pointer.PointerInputEvent
@@ -35,16 +34,14 @@ val DesktopOwnersAmbient = staticAmbientOf<DesktopOwners>()
 @OptIn(InternalCoreApi::class)
 class DesktopOwners(
     component: Component,
-    private val redraw: () -> Unit
+    val invalidate: () -> Unit
 ) {
-    private val list = LinkedHashSet<DesktopOwner>()
-
-    // Optimization: we don't need more than one redrawing per tick
-    private var redrawingScheduled = false
+    val list = LinkedHashSet<DesktopOwner>()
 
     private var pointerId = 0L
     private var isMousePressed = false
 
+    internal val animationClock = DesktopAnimationClock(invalidate)
     internal val platformInputService: DesktopPlatformInput = DesktopPlatformInput(component)
 
     fun register(desktopOwner: DesktopOwner) {
@@ -57,7 +54,8 @@ class DesktopOwners(
         invalidate()
     }
 
-    fun onRender(canvas: Canvas, width: Int, height: Int) {
+    fun onRender(canvas: Canvas, width: Int, height: Int, nanoTime: Long) {
+        animationClock.onFrame(nanoTime)
         for (owner in list) {
             owner.setSize(width, height)
             owner.draw(canvas)
@@ -77,6 +75,11 @@ class DesktopOwners(
 
     fun onMouseDragged(x: Int, y: Int) {
         list.lastOrNull()?.processPointerInput(pointerInputEvent(x, y, isMousePressed))
+    }
+
+    fun onMouseScroll(x: Int, y: Int, event: MouseScrollEvent) {
+        val position = Offset(x.toFloat(), y.toFloat())
+        list.lastOrNull()?.onMouseScroll(position, event)
     }
 
     fun onKeyPressed(code: Int, char: Char) {
@@ -114,19 +117,5 @@ class DesktopOwners(
                 )
             )
         )
-    }
-
-    fun invalidate() {
-        if (!redrawingScheduled) {
-            DesktopUiDispatcher.Dispatcher.scheduleAfterCallback {
-                redrawingScheduled = false
-                if (Recomposer.current().hasPendingChanges()) {
-                    invalidate()
-                } else {
-                    redraw()
-                }
-            }
-            redrawingScheduled = true
-        }
     }
 }

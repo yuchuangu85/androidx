@@ -17,6 +17,7 @@
 package androidx.compose.foundation
 
 import android.os.Build
+import androidx.compose.foundation.layout.preferredHeightIn
 import androidx.compose.foundation.layout.preferredSize
 import androidx.compose.foundation.layout.preferredSizeIn
 import androidx.compose.foundation.layout.wrapContentSize
@@ -109,7 +110,7 @@ class ImageTest {
         val bgColorArgb = bgColor.toArgb()
         val pathArgb = pathColor.toArgb()
 
-        onNodeWithTag(contentTag).captureToBitmap().apply {
+        rule.onNodeWithTag(contentTag).captureToBitmap().apply {
             val imageStartX = width / 2 - imageWidth / 2
             val imageStartY = height / 2 - imageHeight / 2
             Assert.assertEquals(bgColorArgb, getPixel(imageStartX + 2, imageStartY))
@@ -149,7 +150,7 @@ class ImageTest {
         val bgColorArgb = bgColor.toArgb()
         val pathArgb = pathColor.toArgb()
 
-        onRoot().captureToBitmap().apply {
+        rule.onRoot().captureToBitmap().apply {
             val imageStartX = width / 2 - subsectionWidth / 2
             val imageStartY = height / 2 - subsectionHeight / 2
             Assert.assertEquals(bgColorArgb, getPixel(imageStartX + 2, imageStartY))
@@ -219,7 +220,7 @@ class ImageTest {
 
         val bgColorArgb = bgColor.toArgb()
         val pathArgb = pathColor.toArgb()
-        onNodeWithTag(contentTag).captureToBitmap().apply {
+        rule.onNodeWithTag(contentTag).captureToBitmap().apply {
             val imageStartX = width / 2 - imageComposableWidth / 2
             val imageStartY = height / 2 - imageComposableHeight / 2
             Assert.assertEquals(bgColorArgb, getPixel(imageStartX + 5, imageStartY))
@@ -263,7 +264,7 @@ class ImageTest {
 
         val bgColorArgb = bgColor.toArgb()
         val pathArgb = pathColor.toArgb()
-        onNodeWithTag(contentTag).captureToBitmap().apply {
+        rule.onNodeWithTag(contentTag).captureToBitmap().apply {
             val composableEndX = width / 2 + imageComposableWidth / 2
             val composableEndY = height / 2 + imageComposableHeight / 2
             val imageStartX = composableEndX - imageWidth
@@ -315,7 +316,7 @@ class ImageTest {
 
         val imageColor = Color.Red.toArgb()
         val containerBgColor = Color.White.toArgb()
-        onRoot().captureToBitmap().apply {
+        rule.onRoot().captureToBitmap().apply {
             val imageStartX = width / 2 - boxWidth / 2
             val imageStartY = height / 2 - boxHeight / 2
             Assert.assertEquals(containerBgColor, getPixel(imageStartX - 1, imageStartY - 1))
@@ -333,6 +334,39 @@ class ImageTest {
                 imageStartY + boxHeight - 2))
             Assert.assertEquals(imageColor, getPixel(imageStartX, imageStartY +
                     boxHeight - 2))
+        }
+    }
+
+    @Test
+    fun testContentScaleCropRespectsMaxDimension() {
+        val testTag = "testTag"
+        rule.setContent {
+            val asset = with(ImageAsset(100, 100)) {
+                with(Canvas(this)) {
+                    val paint = Paint().apply { this.color = Color.Blue }
+                    drawRect(0f, 0f, 100f, 100f, paint)
+                    drawRect(25f, 25f, 75f, 75f,
+                        paint.apply { this.color = Color.Red })
+                }
+                this
+            }
+            val heightDp = asset.height / DensityAmbient.current.density
+            Image(asset,
+                modifier = Modifier
+                    .testTag(testTag)
+                    .background(Color.Green)
+                    .preferredHeightIn(max = (heightDp / 2f).dp),
+                contentScale = ContentScale.Crop
+            )
+        }
+
+        rule.onNodeWithTag(testTag).captureToBitmap().apply {
+            Assert.assertEquals(100, width)
+            Assert.assertEquals(50, height)
+            Assert.assertEquals(Color.Blue.toArgb(), getPixel(24, height / 2))
+            Assert.assertEquals(Color.Blue.toArgb(), getPixel(75, height / 2))
+            Assert.assertEquals(Color.Red.toArgb(), getPixel(50, 0))
+            Assert.assertEquals(Color.Red.toArgb(), getPixel(50, height - 1))
         }
     }
 }

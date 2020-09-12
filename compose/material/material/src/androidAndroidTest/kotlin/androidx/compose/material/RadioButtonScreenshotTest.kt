@@ -34,11 +34,9 @@ import androidx.ui.test.createComposeRule
 import androidx.ui.test.down
 import androidx.ui.test.isInMutuallyExclusiveGroup
 import androidx.ui.test.move
-import androidx.ui.test.onNode
 import androidx.ui.test.onNodeWithTag
 import androidx.ui.test.performGesture
 import androidx.ui.test.up
-import androidx.ui.test.waitForIdle
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,7 +48,7 @@ import org.junit.runners.JUnit4
 class RadioButtonScreenshotTest {
 
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val rule = createComposeRule()
 
     @get:Rule
     val screenshotRule = AndroidXScreenshotTestRule(GOLDEN_MATERIAL)
@@ -63,7 +61,7 @@ class RadioButtonScreenshotTest {
 
     @Test
     fun radioButtonTest_selected() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Box(wrap.testTag(wrapperTestTag)) {
                 RadioButton(selected = true, onClick = {})
             }
@@ -73,7 +71,7 @@ class RadioButtonScreenshotTest {
 
     @Test
     fun radioButtonTest_notSelected() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Box(wrap.testTag(wrapperTestTag)) {
                 RadioButton(selected = false, onClick = {})
             }
@@ -83,12 +81,12 @@ class RadioButtonScreenshotTest {
 
     @Test
     fun radioButtonTest_pressed() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Box(wrap.testTag(wrapperTestTag)) {
                 RadioButton(selected = false, onClick = {})
             }
         }
-        onNodeWithTag(wrapperTestTag).performGesture {
+        rule.onNodeWithTag(wrapperTestTag).performGesture {
             down(center)
         }
         assertSelectableAgainstGolden("radioButton_pressed")
@@ -96,7 +94,7 @@ class RadioButtonScreenshotTest {
 
     @Test
     fun radioButtonTest_disabled_selected() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Box(wrap.testTag(wrapperTestTag)) {
                 RadioButton(selected = true, onClick = {}, enabled = false)
             }
@@ -106,7 +104,7 @@ class RadioButtonScreenshotTest {
 
     @Test
     fun radioButtonTest_disabled_notSelected() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Box(wrap.testTag(wrapperTestTag)) {
                 RadioButton(selected = false, onClick = {}, enabled = false)
             }
@@ -116,7 +114,7 @@ class RadioButtonScreenshotTest {
 
     @Test
     fun radioButton_notSelected_animateToSelected() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             val isSelected = remember { mutableStateOf(false) }
             Box(wrap.testTag(wrapperTestTag)) {
                 RadioButton(
@@ -126,23 +124,23 @@ class RadioButtonScreenshotTest {
             }
         }
 
-        composeTestRule.clockTestRule.pauseClock()
+        rule.clockTestRule.pauseClock()
 
-        onNode(isInMutuallyExclusiveGroup())
+        rule.onNode(isInMutuallyExclusiveGroup())
             // split click into (down) and (move, up) to enforce a composition in between
             .performGesture { down(center) }
             .performGesture { move(); up() }
 
-        waitForIdle()
+        rule.waitForIdle()
 
-        composeTestRule.clockTestRule.advanceClock(60)
+        rule.clockTestRule.advanceClock(60)
 
         assertSelectableAgainstGolden("radioButton_animateToSelected")
     }
 
     @Test
     fun radioButton_selected_animateToNotSelected() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             val isSelected = remember { mutableStateOf(true) }
             Box(wrap.testTag(wrapperTestTag)) {
                 RadioButton(
@@ -152,23 +150,23 @@ class RadioButtonScreenshotTest {
             }
         }
 
-        composeTestRule.clockTestRule.pauseClock()
+        rule.clockTestRule.pauseClock()
 
-        onNode(isInMutuallyExclusiveGroup())
+        rule.onNode(isInMutuallyExclusiveGroup())
             // split click into (down) and (move, up) to enforce a composition in between
             .performGesture { down(center) }
             .performGesture { move(); up() }
 
-        waitForIdle()
+        rule.waitForIdle()
 
-        composeTestRule.clockTestRule.advanceClock(60)
+        rule.clockTestRule.advanceClock(60)
 
         assertSelectableAgainstGolden("radioButton_animateToNotSelected")
     }
 
     private fun assertSelectableAgainstGolden(goldenName: String) {
         // TODO: replace with find(isInMutuallyExclusiveGroup()) after b/157687898 is fixed
-        onNodeWithTag(wrapperTestTag)
+        rule.onNodeWithTag(wrapperTestTag)
             .captureToBitmap()
             .assertAgainstGolden(screenshotRule, goldenName)
     }

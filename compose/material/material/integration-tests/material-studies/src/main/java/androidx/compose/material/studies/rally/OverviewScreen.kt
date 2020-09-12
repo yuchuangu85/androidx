@@ -21,7 +21,7 @@ import androidx.compose.foundation.ScrollableColumn
 import androidx.compose.foundation.Text
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.InnerPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,7 +45,7 @@ import java.util.Locale
 
 @Composable
 fun OverviewBody() {
-    ScrollableColumn(contentPadding = InnerPadding(16.dp)) {
+    ScrollableColumn(contentPadding = PaddingValues(16.dp)) {
         AlertCard()
         Spacer(Modifier.preferredHeight(RallyDefaultPadding))
         AccountsCard()
@@ -91,12 +91,12 @@ private fun AlertHeader(onClickSeeAll: () -> Unit) {
         Text(
             text = "Alerts",
             style = MaterialTheme.typography.subtitle2,
-            modifier = Modifier.gravity(Alignment.CenterVertically)
+            modifier = Modifier.align(Alignment.CenterVertically)
         )
         TextButton(
             onClick = onClickSeeAll,
-            contentPadding = InnerPadding(0.dp),
-            modifier = Modifier.gravity(Alignment.CenterVertically)
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.align(Alignment.CenterVertically)
         ) {
             Text("SEE ALL")
         }
@@ -117,7 +117,7 @@ private fun AlertItem(message: String) {
         )
         IconButton(
             onClick = {},
-            modifier = Modifier.gravity(Alignment.Top)
+            modifier = Modifier.align(Alignment.Top)
         ) {
             Icon(Icons.Filled.Sort)
         }

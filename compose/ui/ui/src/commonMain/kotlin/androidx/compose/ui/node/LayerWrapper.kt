@@ -18,22 +18,21 @@ package androidx.compose.ui.node
 
 import androidx.compose.ui.DrawLayerModifier
 import androidx.compose.ui.Placeable
+import androidx.compose.ui.geometry.MutableRect
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.input.pointer.PointerInputFilter
 import androidx.compose.ui.layout.globalPosition
-import androidx.compose.ui.platform.NativeMatrix
-import androidx.compose.ui.platform.NativeRectF
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 
 internal class LayerWrapper(
     wrapped: LayoutNodeWrapper,
     modifier: DrawLayerModifier
-) : DelegatingLayoutNodeWrapper<DrawLayerModifier>(wrapped, modifier) {
+) : DelegatingLayoutNodeWrapper<DrawLayerModifier>(wrapped, modifier), (Canvas) -> Unit {
     private var _layer: OwnedLayer? = null
-    private var layerDestroyed = false
 
     // Do not invalidate itself on position change.
     override val invalidateLayerOnBoundsChange get() = false
@@ -46,25 +45,23 @@ internal class LayerWrapper(
         }
 
     private val invalidateParentLayer: () -> Unit = {
-        wrappedBy?.findLayer()?.invalidate()
+        wrappedBy?.invalidateLayer()
     }
 
-    val layer: OwnedLayer
-        get() {
-            return _layer ?: layoutNode.requireOwner().createLayer(
-                modifier,
-                wrapped::draw,
-                invalidateParentLayer
-            ).also {
-                _layer = it
-                invalidateParentLayer()
-            }
-        }
+    /**
+     * True when the last drawing of this layer didn't draw the real content as the LayoutNode
+     * containing this layer was not placed by the parent.
+     */
+    internal var lastDrawingWasSkipped = false
+        private set
 
-    // TODO(mount): This cache isn't thread safe at all.
-    private var positionCache: FloatArray? = null
+    val layer: OwnedLayer
+        get() = _layer!!
+
     // TODO (njawad): This cache matrix is not thread safe
-    private var inverseMatrixCache: NativeMatrix? = null
+    private var _matrixCache: Matrix? = null
+    private val matrixCache: Matrix
+        get() = _matrixCache ?: Matrix().also { _matrixCache = it }
 
     override fun performMeasure(constraints: Constraints): Placeable {
         val placeable = super.performMeasure(constraints)
@@ -81,6 +78,16 @@ internal class LayerWrapper(
         layer.drawLayer(canvas)
     }
 
+    override fun attach() {
+        super.attach()
+        _layer = layoutNode.requireOwner().createLayer(
+            modifier,
+            this,
+            invalidateParentLayer
+        )
+        invalidateParentLayer()
+    }
+
     override fun detach() {
         super.detach()
         // The layer has been removed and we need to invalidate the containing layer. We've lost
@@ -88,65 +95,39 @@ internal class LayerWrapper(
         // in onModifierChanged(). Therefore the only possible layer that won't automatically be
         // invalidated is the parent's layer. We'll invalidate it here:
         @OptIn(ExperimentalLayoutNodeApi::class)
-        layoutNode.parent?.onInvalidate()
+        layoutNode.parent?.invalidateLayer()
         _layer?.destroy()
+        _layer = null
     }
 
-    override fun findLayer(): OwnedLayer? {
-        return layer
+    override fun invalidateLayer() {
+        _layer?.invalidate()
     }
 
     override fun fromParentPosition(position: Offset): Offset {
-        val matrix = layer.getMatrix()
-        val targetPosition =
-            if (!matrix.isIdentity()) {
-                val inverse = inverseMatrixCache ?: NativeMatrix().also { inverseMatrixCache = it }
-                matrix.invert(inverse)
-                mapPointsFromMatrix(inverse, position)
-            } else {
-                position
-            }
+        val inverse = matrixCache
+        layer.getMatrix(inverse)
+        inverse.invert()
+        val targetPosition = inverse.map(position)
         return super.fromParentPosition(targetPosition)
     }
 
     override fun toParentPosition(position: Offset): Offset {
-        val matrix = layer.getMatrix()
-        val targetPosition =
-            if (!matrix.isIdentity()) {
-                mapPointsFromMatrix(matrix, position)
-            } else {
-                position
-            }
+        val matrix = matrixCache
+        val targetPosition = matrix.map(position)
         return super.toParentPosition(targetPosition)
     }
 
-    /**
-     * Return a transformed [Offset] based off of the provided matrix transformation
-     * and untransformed position.
-     */
-    private fun mapPointsFromMatrix(matrix: NativeMatrix, position: Offset): Offset {
-        val x = position.x
-        val y = position.y
-        val cache = positionCache
-        val point = if (cache != null) {
-            cache[0] = x
-            cache[1] = y
-            cache
-        } else {
-            floatArrayOf(x, y).also { positionCache = it }
+    override fun rectInParent(bounds: MutableRect) {
+        if (modifier.clip) {
+            bounds.intersect(0f, 0f, size.width.toFloat(), size.height.toFloat())
+            if (bounds.isEmpty) {
+                return
+            }
         }
-        matrix.mapPoints(point)
-        return Offset(point[0], point[1])
-    }
-
-    override fun rectInParent(bounds: NativeRectF) {
-        if (modifier.clip &&
-            !bounds.intersect(0f, 0f, size.width.toFloat(), size.height.toFloat())
-        ) {
-            bounds.setEmpty()
-        }
-        val matrix = layer.getMatrix()
-        matrix.mapRect(bounds)
+        val matrix = matrixCache
+        layer.getMatrix(matrix)
+        matrix.map(bounds)
         return super.rectInParent(bounds)
     }
 
@@ -178,5 +159,21 @@ internal class LayerWrapper(
 
     override fun onModifierChanged() {
         _layer?.invalidate()
+    }
+
+    @ExperimentalLayoutNodeApi
+    override fun invoke(canvas: Canvas) {
+        if (layoutNode.isPlaced) {
+            require(layoutNode.layoutState == LayoutNode.LayoutState.Ready) {
+                "Layer is redrawn for LayoutNode in state ${layoutNode.layoutState} [$layoutNode]"
+            }
+            wrapped.draw(canvas)
+            lastDrawingWasSkipped = false
+        } else {
+            // The invalidation is requested even for nodes which are not placed. As we are not
+            // going to display them we skip the drawing. It is safe to just draw nothing as the
+            // layer will be invalidated again when the node will be finally placed.
+            lastDrawingWasSkipped = true
+        }
     }
 }

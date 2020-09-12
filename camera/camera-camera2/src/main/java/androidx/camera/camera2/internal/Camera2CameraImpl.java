@@ -37,8 +37,6 @@ import androidx.annotation.RestrictTo;
 import androidx.camera.camera2.internal.annotation.CameraExecutor;
 import androidx.camera.camera2.internal.compat.CameraAccessExceptionCompat;
 import androidx.camera.camera2.internal.compat.CameraManagerCompat;
-import androidx.camera.core.CameraControl;
-import androidx.camera.core.CameraInfo;
 import androidx.camera.core.CameraUnavailableException;
 import androidx.camera.core.Preview;
 import androidx.camera.core.UseCase;
@@ -121,7 +119,7 @@ final class Camera2CameraImpl implements CameraInternal {
     private final LiveDataObservable<CameraInternal.State> mObservableState =
             new LiveDataObservable<>();
     /** The camera control shared across all use cases bound to this Camera. */
-    private final Camera2CameraControl mCameraControlInternal;
+    private final Camera2CameraControlImpl mCameraControlInternal;
     private final StateCallback mStateCallback;
     /** Information about the characteristics of this camera */
     @SuppressWarnings("WeakerAccess") /* synthetic accessor */
@@ -166,6 +164,7 @@ final class Camera2CameraImpl implements CameraInternal {
     private final CaptureSessionRepository mCaptureSessionRepository;
     @NonNull
     private final SynchronizedCaptureSessionOpener.Builder mCaptureSessionOpenerBuilder;
+    private final Set<String> mNotifyStateAttachedSet = new HashSet<>();
 
     /**
      * Constructor for a camera.
@@ -198,7 +197,7 @@ final class Camera2CameraImpl implements CameraInternal {
         try {
             CameraCharacteristics cameraCharacteristics =
                     mCameraManager.getCameraCharacteristics(cameraId);
-            mCameraControlInternal = new Camera2CameraControl(cameraCharacteristics,
+            mCameraControlInternal = new Camera2CameraControlImpl(cameraCharacteristics,
                     executorScheduler, mExecutor, new ControlUpdateListenerInternal());
             mCameraInfoInternal = new Camera2CameraInfoImpl(
                     cameraId,
@@ -637,6 +636,7 @@ final class Camera2CameraImpl implements CameraInternal {
              * use count to recover the additional increment here.
              */
             mCameraControlInternal.incrementUseCount();
+            notifyStateAttachedToUseCases(new ArrayList<>(useCases));
             try {
                 mExecutor.execute(() -> {
                     try {
@@ -687,8 +687,6 @@ final class Camera2CameraImpl implements CameraInternal {
             mCameraControlInternal.incrementUseCount();
         }
 
-        notifyStateAttachedToUseCases(useCasesToAttach);
-
         // Check if need to add or remove MeetingRepeatingUseCase.
         addOrRemoveMeteringRepeatingUseCase();
 
@@ -705,19 +703,25 @@ final class Camera2CameraImpl implements CameraInternal {
     }
 
     private void notifyStateAttachedToUseCases(List<UseCase> useCases) {
-        CameraXExecutors.mainThreadExecutor().execute(() -> {
-            for (UseCase useCase : useCases) {
-                useCase.onStateAttached();
+        for (UseCase useCase : useCases) {
+            if (mNotifyStateAttachedSet.contains(useCase.getName() + useCase.hashCode())) {
+                continue;
             }
-        });
+
+            mNotifyStateAttachedSet.add(useCase.getName() + useCase.hashCode());
+            useCase.onStateAttached();
+        }
     }
 
     private void notifyStateDetachedToUseCases(List<UseCase> useCases) {
-        CameraXExecutors.mainThreadExecutor().execute(() -> {
-            for (UseCase useCase : useCases) {
-                useCase.onStateDetached();
+        for (UseCase useCase : useCases) {
+            if (!mNotifyStateAttachedSet.contains(useCase.getName() + useCase.hashCode())) {
+                continue;
             }
-        });
+
+            useCase.onStateDetached();
+            mNotifyStateAttachedSet.remove(useCase.getName() + useCase.hashCode());
+        }
     }
 
     @ExecutedBy("mExecutor")
@@ -750,6 +754,7 @@ final class Camera2CameraImpl implements CameraInternal {
     @Override
     public void detachUseCases(@NonNull Collection<UseCase> useCases) {
         if (!useCases.isEmpty()) {
+            notifyStateDetachedToUseCases(new ArrayList<>(useCases));
             mExecutor.execute(() -> tryDetachUseCases(useCases));
         }
     }
@@ -760,7 +765,7 @@ final class Camera2CameraImpl implements CameraInternal {
         List<UseCase> useCasesToDetach = new ArrayList<>();
         for (UseCase useCase : toRemove) {
             if (mUseCaseAttachState.isUseCaseAttached(useCase.getName() + useCase.hashCode())) {
-                mUseCaseAttachState.setUseCaseDetached(useCase.getName() + useCase.hashCode());
+                mUseCaseAttachState.removeUseCase(useCase.getName() + useCase.hashCode());
                 useCasesToDetach.add(useCase);
             }
         }
@@ -772,8 +777,6 @@ final class Camera2CameraImpl implements CameraInternal {
         debugLog("Use cases [" + TextUtils.join(", ", useCasesToDetach)
                 + "] now DETACHED for camera");
         clearCameraControlPreviewAspectRatio(useCasesToDetach);
-
-        notifyStateDetachedToUseCases(useCasesToDetach);
 
         // Check if need to add or remove MeetingRepeatingUseCase.
         addOrRemoveMeteringRepeatingUseCase();
@@ -1075,7 +1078,7 @@ final class Camera2CameraImpl implements CameraInternal {
         return true;
     }
 
-    /** Returns the Camera2CameraControl attached to Camera */
+    /** Returns the Camera2CameraControlImpl attached to Camera */
     @NonNull
     @Override
     public CameraControlInternal getCameraControlInternal() {
@@ -1132,18 +1135,6 @@ final class Camera2CameraImpl implements CameraInternal {
                 Log.d(TAG, msgString, throwable);
             }
         }
-    }
-
-    @NonNull
-    @Override
-    public CameraControl getCameraControl() {
-        return getCameraControlInternal();
-    }
-
-    @NonNull
-    @Override
-    public CameraInfo getCameraInfo() {
-        return getCameraInfoInternal();
     }
 
     enum InternalState {

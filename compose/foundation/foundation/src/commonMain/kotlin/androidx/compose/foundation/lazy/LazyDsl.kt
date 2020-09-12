@@ -16,7 +16,7 @@
 
 package androidx.compose.foundation.lazy
 
-import androidx.compose.foundation.layout.InnerPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,30 +63,100 @@ interface LazyListScope {
     )
 }
 
+private class IntervalHolder(
+    val startIndex: Int,
+    val content: LazyItemScope.(Int) -> (@Composable () -> Unit)
+)
+
 private class LazyListScopeImpl : LazyListScope {
-    // TODO: Avoid allocating per-item composable by saving the composable for a range of items
-    val allItemsContent = mutableListOf<@Composable LazyItemScope.() -> Unit>()
+    val intervals = mutableListOf<IntervalHolder>()
+    var totalSize = 0
+
+    fun contentFor(index: Int, scope: LazyItemScope): @Composable () -> Unit {
+        val intervalIndex = findIndexOfHighestValueLesserThan(intervals, index)
+
+        val interval = intervals[intervalIndex]
+        val localIntervalIndex = index - interval.startIndex
+
+        return interval.content(scope, localIntervalIndex)
+    }
 
     override fun <T : Any> items(
         items: List<T>,
         itemContent: @Composable LazyItemScope.(item: T) -> Unit
     ) {
-        items.forEach {
-            allItemsContent.add {
-                itemContent(it)
+        val interval = IntervalHolder(
+            startIndex = totalSize,
+            content = { index ->
+                val item = items[index]
+
+                { itemContent(item) }
             }
-        }
+        )
+
+        totalSize += items.size
+
+        intervals.add(interval)
     }
 
     override fun item(content: @Composable LazyItemScope.() -> Unit) {
-        allItemsContent.add(content)
+        val interval = IntervalHolder(
+            startIndex = totalSize,
+            content = { { content() } }
+        )
+
+        totalSize += 1
+
+        intervals.add(interval)
     }
 
     override fun <T : Any> itemsIndexed(
         items: List<T>,
         itemContent: @Composable LazyItemScope.(index: Int, item: T) -> Unit
     ) {
-        items.forEachIndexed { index, item -> allItemsContent.add { itemContent(index, item) } }
+        val interval = IntervalHolder(
+            startIndex = totalSize,
+            content = { index ->
+                val item = items[index]
+
+                { itemContent(index, item) }
+            }
+        )
+
+        totalSize += items.size
+
+        intervals.add(interval)
+    }
+
+    /**
+     * Finds the index of the [list] which contains the highest value of [IntervalHolder.startIndex]
+     * that is less than or equal to the given [value].
+     */
+    private fun findIndexOfHighestValueLesserThan(list: List<IntervalHolder>, value: Int): Int {
+        var left = 0
+        var right = list.lastIndex
+
+        while (left < right) {
+            val middle = (left + right) / 2
+
+            val middleValue = list[middle].startIndex
+            if (middleValue == value) {
+                return middle
+            }
+
+            if (middleValue < value) {
+                left = middle + 1
+
+                // Verify that the left will not be bigger than our value
+                if (value < list[left].startIndex) {
+                    return middle
+                }
+            } else {
+                right = middle - 1
+            }
+        }
+
+        return left
     }
 }
 
@@ -97,31 +167,27 @@ private class LazyListScopeImpl : LazyListScope {
  *
  * @param modifier the modifier to apply to this layout
  * @param contentPadding specify a padding around the whole content
- * @param verticalGravity the vertical gravity applied to the items
+ * @param verticalAlignment the vertical alignment applied to the items
  * @param content the [LazyListScope] which describes the content
  */
 @Composable
 @ExperimentalLazyDsl
 fun LazyRow(
     modifier: Modifier = Modifier,
-    contentPadding: InnerPadding = InnerPadding(0.dp),
-    verticalGravity: Alignment.Vertical = Alignment.Top,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    verticalAlignment: Alignment.Vertical = Alignment.Top,
     content: LazyListScope.() -> Unit
 ) {
     val scope = LazyListScopeImpl()
     scope.apply(content)
 
     LazyFor(
-        itemsCount = scope.allItemsContent.size,
+        itemsCount = scope.totalSize,
         modifier = modifier,
         contentPadding = contentPadding,
-        verticalGravity = verticalGravity,
+        verticalAlignment = verticalAlignment,
         isVertical = false
-    ) { index ->
-        {
-            scope.allItemsContent[index].invoke(this)
-        }
-    }
+    ) { index -> scope.contentFor(index, this) }
 }
 
 /**
@@ -131,29 +197,27 @@ fun LazyRow(
  *
  * @param modifier the modifier to apply to this layout
  * @param contentPadding specify a padding around the whole content
- * @param horizontalGravity the horizontal gravity applied to the items
+ * @param horizontalAlignment the horizontal alignment applied to the items
  * @param content the [LazyListScope] which describes the content
  */
 @Composable
 @ExperimentalLazyDsl
 fun LazyColumn(
     modifier: Modifier = Modifier,
-    contentPadding: InnerPadding = InnerPadding(0.dp),
-    horizontalGravity: Alignment.Horizontal = Alignment.Start,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    horizontalAlignment: Alignment.Horizontal = Alignment.Start,
     content: LazyListScope.() -> Unit
 ) {
     val scope = LazyListScopeImpl()
     scope.apply(content)
 
     LazyFor(
-        itemsCount = scope.allItemsContent.size,
+        itemsCount = scope.totalSize,
         modifier = modifier,
         contentPadding = contentPadding,
-        horizontalGravity = horizontalGravity,
+        horizontalAlignment = horizontalAlignment,
         isVertical = true
-    ) { index ->
-        {
-            scope.allItemsContent[index].invoke(this)
-        }
+    ) {
+        index -> scope.contentFor(index, this)
     }
 }

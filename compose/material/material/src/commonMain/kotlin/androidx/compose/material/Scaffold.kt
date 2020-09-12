@@ -18,7 +18,7 @@ package androidx.compose.material
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.InnerPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Stack
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -127,6 +127,10 @@ enum class FabPosition {
  * screen, by ensuring proper layout strategy for them and collecting necessary data so these
  * components will work together correctly.
  *
+ * For similar components that implement different layout structures, see [BackdropScaffold],
+ * which uses a backdrop as the centerpiece of the screen, and [BottomSheetScaffold], which uses
+ * a persistent bottom sheet as the centerpiece of the screen.
+ *
  * Simple example of a Scaffold with [TopAppBar], [FloatingActionButton] and drawer:
  *
  * @sample androidx.compose.material.samples.SimpleScaffoldWithTopBar
@@ -169,7 +173,7 @@ enum class FabPosition {
  * @param contentColor color of the content in scaffold body. Defaults to either the matching
  * `onFoo` color for [backgroundColor], or, if it is not a color from the theme, this will keep
  * the same value set above this Surface.
- * @param bodyContent content of your screen. The lambda receives an [InnerPadding] that should be
+ * @param bodyContent content of your screen. The lambda receives an [PaddingValues] that should be
  * applied to the content root via [Modifier.padding] to properly offset top and bottom bars. If
  * you're using VerticalScroller, apply this modifier to the child of the scroller, and not on
  * the scroller itself.
@@ -190,11 +194,10 @@ fun Scaffold(
     drawerElevation: Dp = DrawerConstants.DefaultElevation,
     drawerBackgroundColor: Color = MaterialTheme.colors.surface,
     drawerContentColor: Color = contentColorFor(drawerBackgroundColor),
-    drawerScrimColor: Color = MaterialTheme.colors.onSurface
-        .copy(alpha = DrawerConstants.ScrimDefaultOpacity),
+    drawerScrimColor: Color = DrawerConstants.defaultScrimColor,
     backgroundColor: Color = MaterialTheme.colors.background,
     contentColor: Color = contentColorFor(backgroundColor),
-    bodyContent: @Composable (InnerPadding) -> Unit
+    bodyContent: @Composable (PaddingValues) -> Unit
 ) {
     scaffoldState.scaffoldGeometry.isFabDocked = isFloatingActionButtonDocked
     val child = @Composable { childModifier: Modifier ->
@@ -205,7 +208,7 @@ fun Scaffold(
                 }
                 Stack(Modifier.weight(1f, fill = true)) {
                     ScaffoldContent(Modifier.fillMaxSize(), scaffoldState, bodyContent)
-                    Column(Modifier.gravity(Alignment.BottomCenter)) {
+                    Column(Modifier.align(Alignment.BottomCenter)) {
                         snackbarHost(scaffoldState.snackbarHostState)
                         ScaffoldBottom(
                             scaffoldState = scaffoldState,
@@ -262,7 +265,7 @@ private fun ScaffoldBottom(
         Column(Modifier.fillMaxWidth()) {
             if (fab != null) {
                 FabContainer(
-                    Modifier.gravity(fabPos.toColumnAlign())
+                    Modifier.align(fabPos.toColumnAlign())
                         .padding(start = FabSpacing, end = FabSpacing, bottom = FabSpacing),
                     scaffoldState,
                     fab
@@ -317,12 +320,12 @@ private fun DockedBottomBar(
 private fun ScaffoldContent(
     modifier: Modifier,
     scaffoldState: ScaffoldState,
-    content: @Composable (InnerPadding) -> Unit
+    content: @Composable (PaddingValues) -> Unit
 ) {
     ScaffoldSlot(modifier) {
         val innerPadding = with(DensityAmbient.current) {
             val bottom = scaffoldState.scaffoldGeometry.bottomBarBounds?.height?.toDp() ?: 0.dp
-            InnerPadding(bottom = bottom)
+            PaddingValues(bottom = bottom)
         }
         content(innerPadding)
     }

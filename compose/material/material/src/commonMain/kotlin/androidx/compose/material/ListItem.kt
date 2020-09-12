@@ -135,11 +135,11 @@ private object OneLine {
         trailing: @Composable (() -> Unit)?
     ) {
         val minHeight = if (icon == null) MinHeight else MinHeightWithIcon
-        Row(modifier.preferredHeightIn(minHeight = minHeight)) {
+        Row(modifier.preferredHeightIn(min = minHeight)) {
             if (icon != null) {
                 Box(
-                    Modifier.gravity(Alignment.CenterVertically)
-                        .preferredWidthIn(minWidth = IconLeftPadding + IconMinPaddedWidth),
+                    Modifier.align(Alignment.CenterVertically)
+                        .preferredWidthIn(min = IconLeftPadding + IconMinPaddedWidth),
                     gravity = ContentGravity.CenterStart,
                     paddingStart = IconLeftPadding,
                     paddingTop = IconVerticalPadding,
@@ -149,14 +149,14 @@ private object OneLine {
             }
             Box(
                 Modifier.weight(1f)
-                    .gravity(Alignment.CenterVertically)
+                    .align(Alignment.CenterVertically)
                     .padding(start = ContentLeftPadding, end = ContentRightPadding),
                 gravity = ContentGravity.CenterStart,
                 children = text
             )
             if (trailing != null) {
                 Box(
-                    Modifier.gravity(Alignment.CenterVertically),
+                    Modifier.align(Alignment.CenterVertically),
                     paddingEnd = TrailingRightPadding,
                     children = trailing
                 )
@@ -198,7 +198,7 @@ private object TwoLine {
         trailing: @Composable (() -> Unit)?
     ) {
         val minHeight = if (icon == null) MinHeight else MinHeightWithIcon
-        Row(modifier.preferredHeightIn(minHeight = minHeight)) {
+        Row(modifier.preferredHeightIn(min = minHeight)) {
             val columnModifier = Modifier.weight(1f)
                 .padding(start = ContentLeftPadding, end = ContentRightPadding)
 
@@ -254,7 +254,7 @@ private object TwoLine {
                 ) {
                     Box(
                         // TODO(popam): find way to center and wrap content without minHeight
-                        Modifier.preferredHeightIn(minHeight = minHeight)
+                        Modifier.preferredHeightIn(min = minHeight)
                             .padding(end = TrailingRightPadding),
                         gravity = ContentGravity.Center,
                         children = trailing
@@ -294,7 +294,7 @@ private object ThreeLine {
         overlineText: @Composable (() -> Unit)?,
         trailing: @Composable (() -> Unit)?
     ) {
-        Row(modifier.preferredHeightIn(minHeight = MinHeight)) {
+        Row(modifier.preferredHeightIn(min = MinHeight)) {
             if (icon != null) {
                 val minSize = IconLeftPadding + IconMinPaddedWidth
                 Box(

@@ -17,20 +17,23 @@
 package androidx.wear.watchface
 
 import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Rect
 import android.icu.util.Calendar
 import android.view.SurfaceHolder
 import androidx.annotation.CallSuper
-import androidx.wear.watchfacestyle.UserStyleManager
+import androidx.annotation.UiThread
+import androidx.wear.watchface.style.UserStyleRepository
 
 /** The base class for {@link CanvasRenderer} and {@link Gles2Renderer}. */
 abstract class Renderer(
     /** The {@link SurfaceHolder} that {@link onDraw} will draw into. */
     _surfaceHolder: SurfaceHolder,
 
-    /** The associated {@link UserStyleManager}. */
-    protected val userStyleManager: UserStyleManager
+    /** The associated {@link UserStyleRepository}. */
+    internal val userStyleRepository: UserStyleRepository,
+
+    /** The associated {@link WatchState}. */
+    internal val watchState: WatchState
 ) {
     protected var surfaceHolder = _surfaceHolder
         private set
@@ -59,29 +62,32 @@ abstract class Renderer(
         }
 
     /** Called when the Renderer is destroyed. */
+    @UiThread
     open fun onDestroy() {}
 
+    @UiThread
     open fun onSurfaceDestroyed(holder: SurfaceHolder) {}
 
     /**
      * Renders the watch face into the {@link #surfaceHolder} using the current {@link #drawMode}
-     * with the user style specified by the {@link #userStyleManager}.
+     * with the user style specified by the {@link #userStyleRepository}.
      *
      * @param calendar The Calendar to use when rendering the watch face
      * @return A {@link Bitmap} containing a screenshot of the watch face
      */
-    internal abstract fun onDrawInternal(
-        calendar: Calendar
-    )
+    @UiThread
+    internal abstract fun renderInternal(calendar: Calendar)
 
     /**
-     * Renders the watch face into a Bitmap with the user style specified by the {@link #userStyleManager}.
+     * Renders the watch face into a Bitmap with the user style specified by the
+     * {@link #userStyleRepository}.
      *
      * @param calendar The Calendar to use when rendering the watch face
      * @param drawMode The {@link DrawMode} to use when rendering the watch face
      * @return A {@link Bitmap} containing a screenshot of the watch face
      */
-    abstract fun takeScreenshot(
+    @UiThread
+    internal abstract fun takeScreenshot(
         calendar: Calendar,
         @DrawMode drawMode: Int
     ): Bitmap
@@ -90,6 +96,7 @@ abstract class Renderer(
      * Called when the {@link DrawMode} has been updated. Will always be called before the first
      * call to onDraw().
      */
+    @UiThread
     protected open fun onDrawModeChanged(@DrawMode drawMode: Int) {}
 
     /**
@@ -100,6 +107,7 @@ abstract class Renderer(
      *
      * @return A {@link Rect} describing the bounds of the watch faces' main clock element
      */
+    @UiThread
     open fun getMainClockElementBounds(): Rect {
         val quarterX = centerX / 2
         val quarterY = centerY / 2
@@ -119,6 +127,7 @@ abstract class Renderer(
      * @param height The height of the new display surface
      */
     @CallSuper
+    @UiThread
     open fun onSurfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
         screenBounds = holder.surfaceFrame
         centerX = screenBounds.exactCenterX()
@@ -126,24 +135,17 @@ abstract class Renderer(
     }
 
     /**
-     * Used by {@link ConfigFragment} to draw the watch face in COMPLICATION_SELECT mode.
+     * The system periodically (at least once per minute) calls onTimeTick() to trigger a display
+     * update. If the watch face needs to animate with an interactive frame rate, calls to
+     * invalidate must be scheduled. This method controls whether or not we should do that and if
+     * shouldAnimate returns true we inhibit entering {@link DrawMode#AMBIENT}.
      *
-     * @param canvas The {@param Canvas} to render into
-     * @param bounds A {@param Rect} describing the bounds of the canvas
-     * @param calendar The {@param Calendar} to use for rendering
+     * By default we remain at an interactive frame rate when the watch face is visible and we're
+     * not in ambient mode. Watchfaces with animated transitions for entering ambient mode may
+     * need to override this to ensure they play smoothly.
+     *
+     * @return Whether we should schedule an onDraw call to maintain an interactive frame rate
      */
-    fun drawComplicationSelect(canvas: Canvas, bounds: Rect, calendar: Calendar) {
-        val oldDrawMode = drawMode
-        _drawMode =
-            DrawMode.COMPLICATION_SELECT
-        if (oldDrawMode != drawMode) {
-            onDrawModeChanged(DrawMode.COMPLICATION_SELECT)
-        }
-
-        val bitmap = takeScreenshot(
-            calendar,
-            DrawMode.COMPLICATION_SELECT
-        )
-        canvas.drawBitmap(bitmap, screenBounds, bounds, null)
-    }
+    @UiThread
+    open fun shouldAnimate() = watchState.isVisible && !watchState.isAmbient
 }

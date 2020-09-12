@@ -29,6 +29,7 @@ import android.content.Context;
 
 import androidx.appsearch.app.AppSearchSchema.PropertyConfig;
 import androidx.appsearch.app.customer.EmailDataClass;
+import androidx.appsearch.localbackend.LocalBackend;
 import androidx.test.core.app.ApplicationProvider;
 
 import junit.framework.AssertionFailedError;
@@ -37,7 +38,9 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Future;
 
 public class AppSearchManagerTest {
@@ -47,13 +50,14 @@ public class AppSearchManagerTest {
     @Before
     public void setUp() throws Exception {
         Context context = ApplicationProvider.getApplicationContext();
-        mDb1 = checkIsResultSuccess(
-                new AppSearchManager.Builder(context).setDatabaseName("testDb1").build());
-        mDb2 = checkIsResultSuccess(
-                new AppSearchManager.Builder(context).setDatabaseName("testDb2").build());
+        LocalBackend backend = new LocalBackend.Builder(context).build().getResultValue();
+        mDb1 = checkIsResultSuccess(new AppSearchManager.Builder()
+                .setDatabaseName("testDb1").setBackend(backend).build());
+        mDb2 = checkIsResultSuccess(new AppSearchManager.Builder()
+                .setDatabaseName("testDb2").setBackend(backend).build());
 
         // Remove all documents from any instances that may have been created in the tests.
-        mDb1.resetAllInstances().get().getResultValue();
+        backend.resetAllDatabases().getResultValue();
     }
 
     @Test
@@ -416,6 +420,52 @@ public class AppSearchManagerTest {
     }
 
     @Test
+    public void testQuery_GetNextPage() throws Exception {
+        // Schema registration
+        checkIsResultSuccess(mDb1.setSchema(
+                new SetSchemaRequest.Builder().addSchema(AppSearchEmail.SCHEMA).build()));
+        Set<AppSearchEmail> emailSet = new HashSet<>();
+        PutDocumentsRequest.Builder putDocumentsRequestBuilder = new PutDocumentsRequest.Builder();
+        // Index 31 documents
+        for (int i = 0; i < 31; i++) {
+            AppSearchEmail inEmail =
+                    new AppSearchEmail.Builder("uri" + i)
+                            .setFrom("from@example.com")
+                            .setTo("to1@example.com", "to2@example.com")
+                            .setSubject("testPut example")
+                            .setBody("This is the body of the testPut email")
+                            .build();
+            emailSet.add(inEmail);
+            putDocumentsRequestBuilder.addGenericDocument(inEmail);
+        }
+        checkIsBatchResultSuccess(mDb1.putDocuments(putDocumentsRequestBuilder.build()));
+
+        // Set number of results per page is 7.
+        SearchResults searchResults = mDb1.query("body",
+                new SearchSpec.Builder()
+                        .setTermMatchType(SearchSpec.TERM_MATCH_TYPE_EXACT_ONLY)
+                        .setNumPerPage(7)
+                        .build());
+        List<GenericDocument> documents = new ArrayList<>();
+
+        int pageNumber = 0;
+        List<SearchResults.Result> results;
+
+        // keep loading next page until it's empty.
+        do {
+            results = checkIsResultSuccess(searchResults.getNextPage());
+            ++pageNumber;
+            for (SearchResults.Result result : results) {
+                documents.add(result.getDocument());
+            }
+        } while (results.size() > 0);
+
+        // check all document presents
+        assertThat(documents).containsExactlyElementsIn(emailSet);
+        assertThat(pageNumber).isEqualTo(6); // 5 (upper(31/7)) + 1 (final empty page)
+    }
+
+    @Test
     public void testQuery_TypeFilter() throws Exception {
         // Schema registration
         AppSearchSchema genericSchema = new AppSearchSchema.Builder("Generic")
@@ -495,6 +545,57 @@ public class AppSearchManagerTest {
         results = doQuery(mDb2, "body");
         assertThat(results).hasSize(1);
         assertThat(results).containsExactly(inEmail2);
+    }
+
+    @Test
+    public void testSnippet() throws Exception {
+        // Schema registration
+        // TODO(tytytyww) add property for long and  double.
+        AppSearchSchema genericSchema = new AppSearchSchema.Builder("Generic")
+                .addProperty(new PropertyConfig.Builder("subject")
+                        .setDataType(PropertyConfig.DATA_TYPE_STRING)
+                        .setCardinality(PropertyConfig.CARDINALITY_OPTIONAL)
+                        .setTokenizerType(PropertyConfig.TOKENIZER_TYPE_PLAIN)
+                        .setIndexingType(PropertyConfig.INDEXING_TYPE_PREFIXES)
+                        .build()
+                ).build();
+        checkIsResultSuccess(mDb1.setSchema(
+                new SetSchemaRequest.Builder().addSchema(genericSchema).build()));
+
+        // Index a document
+        GenericDocument document =
+                new GenericDocument.Builder<>("uri", "Generic")
+                        .setNamespace("document")
+                        .setProperty("subject", "A commonly used fake word is foo. "
+                                        + "Another nonsense word that’s used a lot is bar")
+                        .build();
+        checkIsBatchResultSuccess(mDb1.putDocuments(
+                new PutDocumentsRequest.Builder().addGenericDocument(document).build()));
+
+        // Query for the document
+        SearchResults searchResults = mDb1.query("foo",
+                new SearchSpec.Builder()
+                        .setSchemaTypes("Generic")
+                        .setNumToSnippet(1)
+                        .setNumMatchesPerProperty(1)
+                        .setMaxSnippetSize(10)
+                        .setTermMatchType(SearchSpec.TERM_MATCH_TYPE_PREFIX)
+                        .build());
+        List<SearchResults.Result> results = checkIsResultSuccess(searchResults.getNextPage());
+        assertThat(results).hasSize(1);
+
+        List<MatchInfo> matchInfos = results.get(0).getMatchInfo();
+        assertThat(matchInfos).isNotNull();
+        assertThat(matchInfos).hasSize(1);
+        MatchInfo matchInfo = matchInfos.get(0);
+        assertThat(matchInfo.getFullText()).isEqualTo("A commonly used fake word is foo. "
+                + "Another nonsense word that’s used a lot is bar");
+        assertThat(matchInfo.getExactMatchPosition()).isEqualTo(
+                new MatchInfo.MatchRange(/*lower=*/29,  /*upper=*/32));
+        assertThat(matchInfo.getExactMatch()).isEqualTo("foo");
+        assertThat(matchInfo.getSnippetPosition()).isEqualTo(
+                new MatchInfo.MatchRange(/*lower=*/26,  /*upper=*/33));
+        assertThat(matchInfo.getSnippet()).isEqualTo("is foo.");
     }
 
     @Test
@@ -902,8 +1003,7 @@ public class AppSearchManagerTest {
         // Test special character can present in AppSearchManager's name. When a special
         // character is banned in instance'name, add checker in AppSearchManager.builder and
         // reflect it in java doc.
-        AppSearchManager.Builder appSearchBuilder =
-                new AppSearchManager.Builder(ApplicationProvider.getApplicationContext());
+        AppSearchManager.Builder appSearchBuilder = new AppSearchManager.Builder();
 
         IllegalArgumentException e = assertThrows(IllegalArgumentException.class,
                 () -> appSearchBuilder.setDatabaseName("testDatabaseNameEndWith/"));
@@ -930,15 +1030,18 @@ public class AppSearchManagerTest {
     private List<GenericDocument> doQuery(
             AppSearchManager instance, String queryExpression, String... schemaTypes)
             throws Exception {
-        SearchResults searchResults = checkIsResultSuccess(instance.query(
-                queryExpression,
-                SearchSpec.newBuilder()
+        SearchResults searchResults = instance.query(queryExpression,
+                new SearchSpec.Builder()
                         .setSchemaTypes(schemaTypes)
                         .setTermMatchType(SearchSpec.TERM_MATCH_TYPE_EXACT_ONLY)
-                        .build()));
+                        .build());
+        List<SearchResults.Result> results = checkIsResultSuccess(searchResults.getNextPage());
         List<GenericDocument> documents = new ArrayList<>();
-        while (searchResults.hasNext()) {
-            documents.add(searchResults.next().getDocument());
+        while (results.size() > 0) {
+            for (SearchResults.Result result : results) {
+                documents.add(result.getDocument());
+            }
+            results = checkIsResultSuccess(searchResults.getNextPage());
         }
         return documents;
     }

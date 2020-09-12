@@ -33,8 +33,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.vectormath.Matrix4
-import androidx.compose.ui.graphics.vectormath.degrees
+import androidx.compose.ui.graphics.Matrix
+import androidx.compose.ui.graphics.degrees
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -136,7 +136,9 @@ inline fun DrawScope.rotateRad(
     pivotX: Float = center.x,
     pivotY: Float = center.y,
     block: DrawScope.() -> Unit
-) = withTransform({ rotate(degrees(radians), pivotX, pivotY) }, block)
+) {
+    withTransform({ rotate(degrees(radians), pivotX, pivotY) }, block)
+}
 
 /**
  * Add an axis-aligned scale to the current transform, scaling by the first
@@ -264,7 +266,7 @@ abstract class DrawScope : Density {
 
         override fun inset(left: Float, top: Float, right: Float, bottom: Float) {
             this@DrawScope.canvas.let {
-                val updatedSize = size - Offset(left + right, top + bottom)
+                val updatedSize = Size(size.width - (left + right), size.height - (top + bottom))
                 require(updatedSize.width >= 0 && updatedSize.height >= 0) {
                     "Width and height must be greater than or equal to zero"
                 }
@@ -307,7 +309,7 @@ abstract class DrawScope : Density {
             }
         }
 
-        override fun transform(matrix: Matrix4) {
+        override fun transform(matrix: Matrix) {
             this@DrawScope.canvas.concat(matrix)
         }
     }
@@ -442,7 +444,7 @@ abstract class DrawScope : Density {
     fun drawRect(
         brush: Brush,
         topLeft: Offset = Offset.Zero,
-        size: Size = this.size - topLeft,
+        size: Size = this.size.offsetSize(topLeft),
         @FloatRange(from = 0.0, to = 1.0) alpha: Float = 1.0f,
         style: DrawStyle = Fill,
         colorFilter: ColorFilter? = null,
@@ -472,7 +474,7 @@ abstract class DrawScope : Density {
     fun drawRect(
         color: Color,
         topLeft: Offset = Offset.Zero,
-        size: Size = this.size - topLeft,
+        size: Size = this.size.offsetSize(topLeft),
         @FloatRange(from = 0.0, to = 1.0) alpha: Float = 1.0f,
         style: DrawStyle = Fill,
         colorFilter: ColorFilter? = null,
@@ -569,7 +571,7 @@ abstract class DrawScope : Density {
     fun drawRoundRect(
         brush: Brush,
         topLeft: Offset = Offset.Zero,
-        size: Size = this.size - topLeft,
+        size: Size = this.size.offsetSize(topLeft),
         radius: Radius = Radius.Zero,
         @FloatRange(from = 0.0, to = 1.0) alpha: Float = 1.0f,
         style: DrawStyle = Fill,
@@ -602,7 +604,7 @@ abstract class DrawScope : Density {
     fun drawRoundRect(
         color: Color,
         topLeft: Offset = Offset.Zero,
-        size: Size = this.size - topLeft,
+        size: Size = this.size.offsetSize(topLeft),
         radius: Radius = Radius.Zero,
         style: DrawStyle = Fill,
         @FloatRange(from = 0.0, to = 1.0) alpha: Float = 1.0f,
@@ -689,7 +691,7 @@ abstract class DrawScope : Density {
     fun drawOval(
         brush: Brush,
         topLeft: Offset = Offset.Zero,
-        size: Size = this.size - topLeft,
+        size: Size = this.size.offsetSize(topLeft),
         @FloatRange(from = 0.0, to = 1.0) alpha: Float = 1.0f,
         style: DrawStyle = Fill,
         colorFilter: ColorFilter? = null,
@@ -719,7 +721,7 @@ abstract class DrawScope : Density {
     fun drawOval(
         color: Color,
         topLeft: Offset = Offset.Zero,
-        size: Size = this.size - topLeft,
+        size: Size = this.size.offsetSize(topLeft),
         @FloatRange(from = 0.0, to = 1.0) alpha: Float = 1.0f,
         style: DrawStyle = Fill,
         colorFilter: ColorFilter? = null,
@@ -760,7 +762,7 @@ abstract class DrawScope : Density {
         sweepAngle: Float,
         useCenter: Boolean,
         topLeft: Offset = Offset.Zero,
-        size: Size = this.size - topLeft,
+        size: Size = this.size.offsetSize(topLeft),
         @FloatRange(from = 0.0, to = 1.0) alpha: Float = 1.0f,
         style: DrawStyle = Fill,
         colorFilter: ColorFilter? = null,
@@ -804,7 +806,7 @@ abstract class DrawScope : Density {
         sweepAngle: Float,
         useCenter: Boolean,
         topLeft: Offset = Offset.Zero,
-        size: Size = this.size - topLeft,
+        size: Size = this.size.offsetSize(topLeft),
         @FloatRange(from = 0.0, to = 1.0) alpha: Float = 1.0f,
         style: DrawStyle = Fill,
         colorFilter: ColorFilter? = null,
@@ -1129,6 +1131,12 @@ abstract class DrawScope : Density {
         } else {
             this
         }
+
+    /**
+     * Helper method to offset the provided size with the offset in box width and height
+     */
+    private fun Size.offsetSize(offset: Offset): Size =
+        Size(this.width - offset.x, this.height - offset.y)
 
     companion object {
 

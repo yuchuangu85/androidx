@@ -29,26 +29,26 @@ import android.view.SurfaceHolder
 import androidx.test.core.app.ApplicationProvider
 import androidx.wear.complications.SystemProviders
 import androidx.wear.complications.rendering.ComplicationDrawable
-import androidx.wear.watchface.BackgroundComplicationBounds
 import androidx.wear.watchface.Complication
 import androidx.wear.watchface.ComplicationDrawableRenderer
-import androidx.wear.watchface.ComplicationSlots
-import androidx.wear.watchface.FixedBounds
+import androidx.wear.watchface.ComplicationsHolder
 import androidx.wear.watchface.Renderer
-import androidx.wear.watchface.SystemState
+import androidx.wear.watchface.WatchState
 import androidx.wear.watchface.WatchFaceTestRunner
 import androidx.wear.watchface.createComplicationData
-import androidx.wear.watchfacestyle.ListViewUserStyleCategory
-import androidx.wear.watchfacestyle.UserStyleCategory
-import androidx.wear.watchfacestyle.UserStyleManager
-import com.google.common.truth.Truth
+import androidx.wear.watchface.style.ListUserStyleCategory
+import androidx.wear.watchface.style.UserStyleCategory
+import androidx.wear.watchface.style.UserStyleRepository
+import com.google.common.truth.Truth.assertThat
+import com.nhaarman.mockitokotlin2.argumentCaptor
+import com.nhaarman.mockitokotlin2.eq
+import com.nhaarman.mockitokotlin2.verify
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.Mockito
 import org.mockito.Mockito.times
-import org.mockito.Mockito.verify
 import org.robolectric.annotation.Config
 
 private const val LEFT_COMPLICATION_ID = 1000
@@ -66,24 +66,24 @@ class WatchFaceConfigUiTest {
     private val watchFaceConfigDelegate = Mockito.mock(WatchFaceConfigDelegate::class.java)
     private val fragmentController = Mockito.mock(FragmentController::class.java)
     private val surfaceHolder = Mockito.mock(SurfaceHolder::class.java)
-    private val systemState = SystemState()
+    private val systemState = WatchState()
 
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val complicationDrawableLeft = ComplicationDrawable(context)
     private val complicationDrawableRight = ComplicationDrawable(context)
 
     private val redStyleOption =
-        ListViewUserStyleCategory.ListViewOption("red_style", "Red", icon = null)
+        ListUserStyleCategory.ListOption("red_style", "Red", icon = null)
 
     private val greenStyleOption =
-        ListViewUserStyleCategory.ListViewOption("green_style", "Green", icon = null)
+        ListUserStyleCategory.ListOption("green_style", "Green", icon = null)
 
     private val blueStyleOption =
-        ListViewUserStyleCategory.ListViewOption("bluestyle", "Blue", icon = null)
+        ListUserStyleCategory.ListOption("bluestyle", "Blue", icon = null)
 
     private val colorStyleList = listOf(redStyleOption, greenStyleOption, blueStyleOption)
 
-    private val colorStyleCategory = ListViewUserStyleCategory(
+    private val colorStyleCategory = ListUserStyleCategory(
         "color_style_category",
         "Colors",
         "Watchface colorization", /* icon = */
@@ -92,18 +92,18 @@ class WatchFaceConfigUiTest {
     )
 
     private val classicStyleOption =
-        ListViewUserStyleCategory.ListViewOption("classic_style", "Classic", icon = null)
+        ListUserStyleCategory.ListOption("classic_style", "Classic", icon = null)
 
     private val modernStyleOption =
-        ListViewUserStyleCategory.ListViewOption("modern_style", "Modern", icon = null)
+        ListUserStyleCategory.ListOption("modern_style", "Modern", icon = null)
 
     private val gothicStyleOption =
-        ListViewUserStyleCategory.ListViewOption("gothic_style", "Gothic", icon = null)
+        ListUserStyleCategory.ListOption("gothic_style", "Gothic", icon = null)
 
     private val watchHandStyleList =
         listOf(classicStyleOption, modernStyleOption, gothicStyleOption)
 
-    private val watchHandStyleCategory = ListViewUserStyleCategory(
+    private val watchHandStyleCategory = ListUserStyleCategory(
         "hand_style_category",
         "Hand Style",
         "Hand visual look", /* icon = */
@@ -112,10 +112,11 @@ class WatchFaceConfigUiTest {
     )
 
     private val leftComplication =
-        Complication(
+        Complication.Builder(
             LEFT_COMPLICATION_ID,
-            FixedBounds(RectF(0.2f, 0.4f, 0.4f, 0.6f)),
-            ComplicationDrawableRenderer(complicationDrawableLeft, systemState),
+            ComplicationDrawableRenderer(complicationDrawableLeft, systemState).apply {
+                setData(createComplicationData() )
+            },
             intArrayOf(
                 ComplicationData.TYPE_RANGED_VALUE,
                 ComplicationData.TYPE_LONG_TEXT,
@@ -123,15 +124,17 @@ class WatchFaceConfigUiTest {
                 ComplicationData.TYPE_ICON,
                 ComplicationData.TYPE_SMALL_IMAGE
             ),
-            Complication.DefaultComplicationProvider(SystemProviders.SUNRISE_SUNSET),
-            ComplicationData.TYPE_SHORT_TEXT
-        ).apply { complicationData = createComplicationData() }
+            Complication.DefaultComplicationProvider(SystemProviders.SUNRISE_SUNSET)
+        ).setDefaultProviderType(ComplicationData.TYPE_SHORT_TEXT)
+            .setUnitSquareBounds(RectF(0.2f, 0.4f, 0.4f, 0.6f))
+            .build()
 
     private val rightComplication =
-        Complication(
+        Complication.Builder(
             RIGHT_COMPLICATION_ID,
-            FixedBounds(RectF(0.6f, 0.4f, 0.8f, 0.6f)),
-            ComplicationDrawableRenderer(complicationDrawableRight, systemState),
+            ComplicationDrawableRenderer(complicationDrawableRight, systemState).apply {
+                setData(createComplicationData() )
+            },
             intArrayOf(
                 ComplicationData.TYPE_RANGED_VALUE,
                 ComplicationData.TYPE_LONG_TEXT,
@@ -139,26 +142,24 @@ class WatchFaceConfigUiTest {
                 ComplicationData.TYPE_ICON,
                 ComplicationData.TYPE_SMALL_IMAGE
             ),
-            Complication.DefaultComplicationProvider(SystemProviders.DAY_OF_WEEK),
-            ComplicationData.TYPE_SHORT_TEXT
-        ).apply { complicationData = createComplicationData() }
+            Complication.DefaultComplicationProvider(SystemProviders.DAY_OF_WEEK)
+        ).setDefaultProviderType(ComplicationData.TYPE_SHORT_TEXT)
+            .setUnitSquareBounds(RectF(0.6f, 0.4f, 0.8f, 0.6f))
+            .build()
 
     private val backgroundComplication =
-        Complication(
+        Complication.Builder(
             BACKGROUND_COMPLICATION_ID,
-            BackgroundComplicationBounds(),
-            ComplicationDrawableRenderer(complicationDrawableRight, systemState),
+            ComplicationDrawableRenderer(complicationDrawableRight, systemState).apply {
+                setData(createComplicationData() )
+            },
             intArrayOf(
                 ComplicationData.TYPE_LARGE_IMAGE
             ),
-            Complication.DefaultComplicationProvider(),
-            ComplicationData.TYPE_LARGE_IMAGE
-        ).apply { complicationData = createComplicationData() }
-
-    private val sharedPreferences =
-        context.getSharedPreferences("testPreferences", Context.MODE_PRIVATE).apply {
-            edit().clear().commit()
-        }
+            Complication.DefaultComplicationProvider()
+        ).setDefaultProviderType(ComplicationData.TYPE_LARGE_IMAGE)
+            .setBackgroundComplication()
+            .build()
 
     private val calendar = Calendar.getInstance().apply {
         timeInMillis = 1000L
@@ -166,7 +167,7 @@ class WatchFaceConfigUiTest {
 
     private val configActivity = WatchFaceConfigActivity()
 
-    private lateinit var userStyleManager: UserStyleManager
+    private lateinit var userStyleRepository: UserStyleRepository
 
     private fun initConfigActivity(
         complications: List<Complication>,
@@ -175,12 +176,13 @@ class WatchFaceConfigUiTest {
         Mockito.`when`(surfaceHolder.surfaceFrame)
             .thenReturn(ONE_HUNDRED_BY_ONE_HUNDRED_RECT)
 
-        userStyleManager = UserStyleManager(userStyleCategories)
+        userStyleRepository =
+            UserStyleRepository(userStyleCategories)
 
-        val complicationSlots = ComplicationSlots(
+        val complicationSet = ComplicationsHolder(
             complications,
-            object : Renderer(surfaceHolder, userStyleManager) {
-                override fun onDrawInternal(calendar: Calendar) {}
+            object : Renderer(surfaceHolder, userStyleRepository, WatchState()) {
+                override fun renderInternal(calendar: Calendar) {}
 
                 override fun takeScreenshot(calendar: Calendar, drawMode: Int): Bitmap {
                     throw RuntimeException("Not Implemented!")
@@ -195,25 +197,25 @@ class WatchFaceConfigUiTest {
             watchFaceComponentName,
             object : WatchFaceConfigDelegate {
                 override fun getUserStyleSchema() =
-                    UserStyleCategory.userStyleCategoryListToBundles(userStyleCategories)
+                    UserStyleRepository.userStyleCategoriesToBundles(userStyleCategories)
 
                 override fun getUserStyle() =
-                    UserStyleCategory.styleMapToBundle(userStyleManager.userStyle)
+                    UserStyleRepository.styleMapToBundle(userStyleRepository.userStyle)
 
                 override fun setUserStyle(style: Bundle) {
-                    userStyleManager.userStyle =
-                        UserStyleCategory.bundleToStyleMap(style, userStyleCategories)
+                    userStyleRepository.userStyle =
+                        UserStyleRepository.bundleToStyleMap(style, userStyleCategories)
                 }
 
                 override fun getBackgroundComplicationId() =
-                    complicationSlots.getBackgroundComplication()?.id
+                    complicationSet.getBackgroundComplication()?.id
 
-                override fun getComplicationsMap() = complicationSlots.complications
+                override fun getComplicationsMap() = complicationSet.complications
 
                 override fun getCalendar() = calendar
 
-                override fun getComplicationIdAt(tapX: Int, tapY: Int, calendar: Calendar) =
-                    complicationSlots.getComplicationAt(tapX, tapY, calendar)?.id
+                override fun getComplicationIdAt(tapX: Int, tapY: Int) =
+                    complicationSet.getComplicationAt(tapX, tapY)?.id
 
                 override fun brieflyHighlightComplicationId(complicationId: Int) {
                     watchFaceConfigDelegate.brieflyHighlightComplicationId(complicationId)
@@ -242,11 +244,11 @@ class WatchFaceConfigUiTest {
         val view = ConfigView(context, configActivity)
 
         // Tap left complication.
-        view.onTap(30, 50, calendar)
+        view.onTap(30, 50)
         verify(watchFaceConfigDelegate).brieflyHighlightComplicationId(LEFT_COMPLICATION_ID)
 
         // Tap right complication.
-        view.onTap(70, 50, calendar)
+        view.onTap(70, 50)
         verify(watchFaceConfigDelegate).brieflyHighlightComplicationId(RIGHT_COMPLICATION_ID)
     }
 
@@ -256,7 +258,7 @@ class WatchFaceConfigUiTest {
         val view = ConfigView(context, configActivity)
 
         // Tap on blank space.
-        view.onTap(1, 1, calendar)
+        view.onTap(1, 1)
         verify(watchFaceConfigDelegate, times(0)).brieflyHighlightComplicationId(anyInt())
     }
 
@@ -266,7 +268,7 @@ class WatchFaceConfigUiTest {
 
         verify(fragmentController).showComplicationConfig(
             LEFT_COMPLICATION_ID,
-            *leftComplication.supportedComplicationDataTypes
+            *leftComplication.supportedTypes
         )
     }
 
@@ -276,7 +278,7 @@ class WatchFaceConfigUiTest {
 
         verify(fragmentController).showComplicationConfig(
             BACKGROUND_COMPLICATION_ID,
-            *backgroundComplication.supportedComplicationDataTypes
+            *backgroundComplication.supportedTypes
         )
     }
 
@@ -311,13 +313,27 @@ class WatchFaceConfigUiTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
     fun onInitWithNoComplicationsAndOneStyleCalls_showConfigFragment() {
         initConfigActivity(emptyList(), listOf(colorStyleCategory))
 
-        // Note colorStyleCategory gets serialised and deserialised so we can't test equality with
-        // colorStyleCategory.
+        val styleSchemaCaptor = argumentCaptor<List<UserStyleCategory>>()
+        val styleMapCaptor = argumentCaptor<Map<UserStyleCategory, UserStyleCategory.Option>>()
+
+        // Note the schema and the style map will have been marshalled & unmarshalled so we can't
+        // just test equality.
         verify(fragmentController).showStyleConfigFragment(
-            colorStyleCategory.id, configActivity.styleSchema.first().options
+            eq(colorStyleCategory.id),
+            styleSchemaCaptor.capture(),
+            styleMapCaptor.capture()
+        )
+
+        assertThat(styleSchemaCaptor.firstValue.size).isEqualTo(1)
+        assertThat(styleSchemaCaptor.firstValue.first().id).isEqualTo(colorStyleCategory.id)
+
+        val key = styleMapCaptor.firstValue.keys.find { it.id == colorStyleCategory.id }
+        assertThat(styleMapCaptor.firstValue[key]!!.id).isEqualTo(
+            colorStyleCategory.options.first().id
         )
     }
 
@@ -327,24 +343,31 @@ class WatchFaceConfigUiTest {
             listOf(leftComplication, backgroundComplication),
             listOf(colorStyleCategory, watchHandStyleCategory)
         )
-        val catergoryIndex = 0
-        var styleConfigFragment = StyleConfigFragment()
+        val categoryIndex = 0
+        val styleConfigFragment = StyleConfigFragment.newInstance(
+            configActivity.styleSchema[categoryIndex].id,
+            configActivity.styleSchema,
+            mapOf(
+                colorStyleCategory to colorStyleCategory.options.first(),
+                watchHandStyleCategory to watchHandStyleCategory.options.first()
+            )
+        )
+        styleConfigFragment.readOptionsFromArguments()
         styleConfigFragment.watchFaceConfigActivity = configActivity
-        styleConfigFragment.categoryKey = configActivity.styleSchema[catergoryIndex].id
 
-        Truth.assertThat(userStyleManager.userStyle[colorStyleCategory]!!.id).isEqualTo(
+        assertThat(userStyleRepository.userStyle[colorStyleCategory]!!.id).isEqualTo(
             redStyleOption.id
         )
-        Truth.assertThat(userStyleManager.userStyle[watchHandStyleCategory]!!.id).isEqualTo(
+        assertThat(userStyleRepository.userStyle[watchHandStyleCategory]!!.id).isEqualTo(
             classicStyleOption.id
         )
 
-        styleConfigFragment.onItemClick(configActivity.styleSchema[catergoryIndex].options[1])
+        styleConfigFragment.onItemClick(configActivity.styleSchema[categoryIndex].options[1])
 
-        Truth.assertThat(userStyleManager.userStyle[colorStyleCategory]!!.id).isEqualTo(
+        assertThat(userStyleRepository.userStyle[colorStyleCategory]!!.id).isEqualTo(
             greenStyleOption.id
         )
-        Truth.assertThat(userStyleManager.userStyle[watchHandStyleCategory]!!.id).isEqualTo(
+        assertThat(userStyleRepository.userStyle[watchHandStyleCategory]!!.id).isEqualTo(
             classicStyleOption.id
         )
     }

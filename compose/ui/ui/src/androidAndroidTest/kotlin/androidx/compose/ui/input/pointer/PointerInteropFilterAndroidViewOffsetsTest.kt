@@ -31,7 +31,7 @@ import androidx.compose.ui.test.TestActivity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.test.filters.MediumTest
-import androidx.ui.test.android.createAndroidComposeRule
+import androidx.ui.test.createAndroidComposeRule
 import com.nhaarman.mockitokotlin2.clearInvocations
 import com.nhaarman.mockitokotlin2.mock
 import com.nhaarman.mockitokotlin2.never
@@ -53,11 +53,11 @@ class PointerInteropFilterAndroidViewOffsetsTest {
     private val theHitListener: () -> Unit = mock()
 
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<TestActivity>()
+    val rule = createAndroidComposeRule<TestActivity>()
 
     @Before
     fun setup() {
-        composeTestRule.activityRule.scenario.onActivity { activity ->
+        rule.activityRule.scenario.onActivity { activity ->
 
             // one: Android View that is the touch target, inside
             // two: Android View with 1x2 padding, inside
@@ -131,7 +131,7 @@ class PointerInteropFilterAndroidViewOffsetsTest {
     private fun uiClick(x: Int, y: Int, hits: Boolean) {
         clearInvocations(theHitListener)
 
-        composeTestRule.activityRule.scenario.onActivity {
+        rule.activityRule.scenario.onActivity {
             val down =
                 MotionEvent(
                     0,

@@ -1,6 +1,33 @@
 // Signature format: 3.0
 package androidx.compose.ui.geometry {
 
+  public final class MutableRect {
+    ctor public MutableRect(float left, float top, float right, float bottom);
+    method public boolean contains-k-4lQ0M(long offset);
+    method public float getBottom();
+    method public inline float getHeight();
+    method public float getLeft();
+    method public float getRight();
+    method public long getSize();
+    method public float getTop();
+    method public inline float getWidth();
+    method @androidx.compose.runtime.Stable public void intersect(float left, float top, float right, float bottom);
+    method public boolean isEmpty();
+    method public void set(float left, float top, float right, float bottom);
+    method public void setBottom(float p);
+    method public void setLeft(float p);
+    method public void setRight(float p);
+    method public void setTop(float p);
+    property public final inline float height;
+    property public final boolean isEmpty;
+    property public final long size;
+    property public final inline float width;
+  }
+
+  public final class MutableRectKt {
+    method public static androidx.compose.ui.geometry.Rect toRect(androidx.compose.ui.geometry.MutableRect);
+  }
+
   @androidx.compose.runtime.Immutable public final inline class Offset {
     ctor public Offset();
     method @androidx.compose.runtime.Stable public static operator float component1-impl(long $this);
@@ -126,10 +153,6 @@ package androidx.compose.ui.geometry {
   }
 
   public static final class Rect.Companion {
-    method @Deprecated @androidx.compose.runtime.Stable public androidx.compose.ui.geometry.Rect fromCircle-MQFEXWE(long center, float radius);
-    method @Deprecated @androidx.compose.runtime.Stable public androidx.compose.ui.geometry.Rect fromLTRB(float left, float top, float right, float bottom);
-    method @Deprecated @androidx.compose.runtime.Stable public androidx.compose.ui.geometry.Rect fromLTWH(float left, float top, float width, float height);
-    method @Deprecated @androidx.compose.runtime.Stable public androidx.compose.ui.geometry.Rect fromPoints-FZVz7gs(long a, long b);
     method public androidx.compose.ui.geometry.Rect getZero();
     property public final androidx.compose.ui.geometry.Rect Zero;
   }
@@ -245,9 +268,6 @@ package androidx.compose.ui.geometry {
     method public static float getWidth-impl(long $this);
     method @androidx.compose.runtime.Immutable public static inline int hashCode-impl(long p);
     method @androidx.compose.runtime.Stable public static boolean isEmpty-impl(long $this);
-    method @androidx.compose.runtime.Stable public static operator long minus-k-4lQ0M(long $this, long other);
-    method @androidx.compose.runtime.Stable public static operator long minus-uvyYCjk(long $this, long other);
-    method @androidx.compose.runtime.Stable public static operator long plus-k-4lQ0M(long $this, long other);
     method @androidx.compose.runtime.Stable public static operator long rem-impl(long $this, float operand);
     method @androidx.compose.runtime.Stable public static operator long times-impl(long $this, float operand);
     method public static String toString-impl(long $this);
@@ -259,12 +279,9 @@ package androidx.compose.ui.geometry {
   }
 
   public static final class Size.Companion {
-    method @Deprecated public long copy-uvyYCjk(long source);
     method public long getUnspecified();
-    method @Deprecated public long getUnspecifiedSize();
     method public long getZero();
     property public final long Unspecified;
-    property @Deprecated public final long UnspecifiedSize;
     property public final long Zero;
   }
 

@@ -18,28 +18,37 @@ package androidx.camera.view;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
-import android.util.Log;
-import android.util.Size;
 
 import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.experimental.UseExperimental;
 import androidx.camera.core.Camera;
+import androidx.camera.core.CameraControl;
+import androidx.camera.core.CameraInfo;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ExperimentalUseCaseGroup;
+import androidx.camera.core.FocusMeteringAction;
 import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
+import androidx.camera.core.Logger;
+import androidx.camera.core.MeteringPoint;
 import androidx.camera.core.Preview;
+import androidx.camera.core.TorchState;
 import androidx.camera.core.UseCase;
 import androidx.camera.core.UseCaseGroup;
 import androidx.camera.core.VideoCapture;
+import androidx.camera.core.ZoomState;
 import androidx.camera.core.impl.utils.Threads;
 import androidx.camera.core.impl.utils.executor.CameraXExecutors;
 import androidx.camera.core.impl.utils.futures.FutureCallback;
 import androidx.camera.core.impl.utils.futures.Futures;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.util.Preconditions;
+import androidx.lifecycle.LiveData;
+
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -57,34 +66,40 @@ abstract class CameraController {
 
     CameraSelector mCameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
 
+    private static final String CAMERA_NOT_READY = "Camera is not ready.";
+
     private static final String IMAGE_CAPTURE_DISABLED_ERR_MSG = "ImageCapture disabled.";
     private static final String VIDEO_CAPTURE_DISABLED_ERR_MSG = "VideoCapture disabled.";
 
     // CameraController and PreviewView hold reference to each other. The 2-way link is managed
     // by PreviewView.
+    // Synthetic access
+    @SuppressWarnings("WeakerAccess")
     @Nullable
-    private Preview mPreview;
+    Preview mPreview;
 
-    // Size of the PreviewView. Used for creating ViewPort.
+    // SurfaceProvider form the latest attachPreviewSurface() call.
+    // Synthetic access
+    @SuppressWarnings("WeakerAccess")
+    Preview.SurfaceProvider mSurfaceProvider;
+
+    // Synthetic access
+    @SuppressWarnings("WeakerAccess")
     @Nullable
-    private Size mPreviewSize;
+    ImageCapture mImageCapture;
 
-    // SurfaceProvider form the latest attachPreviewSurface() call. This is needed to recreate
-    // Preview.
-    // TODO(b/148791439): remove after use cases are reusable.
-    private Preview.SurfaceProvider mSurfaceProvider;
-
+    // Synthetic access
+    @SuppressWarnings("WeakerAccess")
     @ImageCapture.FlashMode
-    private int mFlashMode = ImageCapture.FLASH_MODE_OFF;
-
-    @Nullable
-    private ImageCapture mImageCapture;
+    int mFlashMode = ImageCapture.FLASH_MODE_OFF;
 
     // ImageCapture is enabled by default.
     private boolean mImageCaptureEnabled = true;
 
+    // Synthetic access
+    @SuppressWarnings("WeakerAccess")
     @Nullable
-    private VideoCapture mVideoCapture;
+    VideoCapture mVideoCapture;
 
     // VideoCapture is disabled by default.
     private boolean mVideoCaptureEnabled = false;
@@ -105,6 +120,12 @@ abstract class CameraController {
     @Nullable
     ProcessCameraProvider mCameraProvider;
 
+    private boolean mPinchToZoomEnabled = true;
+    private boolean mTapToFocusEnabled = true;
+
+    private final ForwardingLiveData<ZoomState> mZoomState = new ForwardingLiveData<>();
+    private final ForwardingLiveData<Integer> mTorchState = new ForwardingLiveData<>();
+
     CameraController(@NonNull Context context) {
         // Wait for camera to be initialized before binding use cases.
         Futures.addCallback(
@@ -114,8 +135,13 @@ abstract class CameraController {
                     @SuppressLint("MissingPermission")
                     @Override
                     public void onSuccess(@Nullable ProcessCameraProvider provider) {
+                        mPreview = new Preview.Builder().build();
+                        mPreview.setSurfaceProvider(mSurfaceProvider);
+                        mImageCapture = new ImageCapture.Builder().setFlashMode(
+                                mFlashMode).build();
+                        mVideoCapture = new VideoCapture.Builder().build();
                         mCameraProvider = provider;
-                        mCamera = startCamera();
+                        startCameraAndTrackStates();
                     }
 
                     @Override
@@ -133,21 +159,6 @@ abstract class CameraController {
     @Nullable
     abstract Camera startCamera();
 
-    /**
-     * Unbinds use cases and clear internal states.
-     */
-    void clear() {
-        if (mCameraProvider != null) {
-            // Preview is required. Unbind everything if Preview is down.
-            mCameraProvider.unbindAll();
-        }
-        mPreviewSize = null;
-        mPreview = null;
-        mCamera = null;
-        mImageCapture = null;
-        mSurfaceProvider = null;
-    }
-
     // ------------------
     // Preview use case.
     // ------------------
@@ -155,29 +166,21 @@ abstract class CameraController {
     /**
      * Internal API used by {@link PreviewView} to notify changes.
      *
-     * TODO(b/148791439): add LayoutDirection
+     * TODO(b/148791439): replace width/height with a Viewport.
      */
     @SuppressLint("MissingPermission")
     @MainThread
-    void attachPreviewSurface(Preview.SurfaceProvider surfaceProvider, int width, int height) {
+    void attachPreviewSurface(@NonNull Preview.SurfaceProvider surfaceProvider, int width,
+            int height) {
         Threads.checkMainThread();
-        if (width == 0 || height == 0) {
-            return;
+        if (mSurfaceProvider != surfaceProvider) {
+            mSurfaceProvider = surfaceProvider;
+            // Avoid setting provider unnecessarily which restarts Preview pipeline.
+            if (mPreview != null) {
+                mPreview.setSurfaceProvider(surfaceProvider);
+            }
         }
-        // Keep a copy of SurfaceProvider so Preview can be recreated after switching camera.
-        mSurfaceProvider = surfaceProvider;
-        Size newPreviewSize = new Size(width, height);
-        if (newPreviewSize.equals(mPreviewSize) && mPreview != null) {
-            // If the Surface size hasn't changed, reuse the UseCase with the new SurfaceProvider.
-            mPreview.setSurfaceProvider(surfaceProvider);
-            return;
-        }
-        if (mPreview != null && mCameraProvider != null) {
-            mCameraProvider.unbind(mPreview);
-        }
-        mPreview = createPreview(surfaceProvider, newPreviewSize);
-        mPreviewSize = newPreviewSize;
-        mCamera = startCamera();
+        startCameraAndTrackStates();
     }
 
     /**
@@ -186,17 +189,15 @@ abstract class CameraController {
     @MainThread
     void clearPreviewSurface() {
         Threads.checkMainThread();
-        clear();
-    }
-
-    @MainThread
-    private Preview createPreview(Preview.SurfaceProvider surfaceProvider, Size previewSize) {
-        Threads.checkMainThread();
-        Preview preview = new Preview.Builder()
-                .setTargetResolution(previewSize)
-                .build();
-        preview.setSurfaceProvider(surfaceProvider);
-        return preview;
+        if (mCameraProvider != null) {
+            // Preview is required. Unbind everything if Preview is down.
+            mCameraProvider.unbindAll();
+        }
+        if (mPreview != null) {
+            mPreview.setSurfaceProvider(null);
+        }
+        mCamera = null;
+        mSurfaceProvider = null;
     }
 
     // ----------------------
@@ -223,8 +224,10 @@ abstract class CameraController {
     public void setImageCaptureEnabled(boolean imageCaptureEnabled) {
         Threads.checkMainThread();
         mImageCaptureEnabled = imageCaptureEnabled;
-        invalidateImageCapture();
-        mCamera = startCamera();
+        if (mCameraProvider != null && !imageCaptureEnabled) {
+            mCameraProvider.unbind(mImageCapture);
+        }
+        startCameraAndTrackStates();
     }
 
     /**
@@ -251,8 +254,12 @@ abstract class CameraController {
     public void setImageCaptureFlashMode(@ImageCapture.FlashMode int flashMode) {
         Threads.checkMainThread();
         mFlashMode = flashMode;
-        invalidateImageCapture();
-        mCamera = startCamera();
+        if (mImageCapture == null) {
+            // Camera is not ready.
+            return;
+        }
+        mImageCapture.setFlashMode(flashMode);
+        startCameraAndTrackStates();
     }
 
     /**
@@ -272,12 +279,12 @@ abstract class CameraController {
             Executor executor,
             ImageCapture.OnImageSavedCallback imageSavedCallback) {
         Threads.checkMainThread();
-        if (mCamera == null) {
-            // No-op if camera is not ready.
+        if (mImageCapture == null) {
+            imageSavedCallback.onError(new ImageCaptureException(ImageCapture.ERROR_UNKNOWN,
+                    CAMERA_NOT_READY, null));
             return;
         }
         Preconditions.checkState(mImageCaptureEnabled, IMAGE_CAPTURE_DISABLED_ERR_MSG);
-        Preconditions.checkNotNull(mImageCapture);
 
         // Mirror the image for front camera.
         if (mCameraSelector.getLensFacing() != null) {
@@ -301,35 +308,13 @@ abstract class CameraController {
             Executor executor,
             ImageCapture.OnImageCapturedCallback callback) {
         Threads.checkMainThread();
-        if (mCamera == null) {
-            // No-op if camera is not ready.
+        if (mImageCapture == null) {
+            callback.onError(new ImageCaptureException(ImageCapture.ERROR_UNKNOWN,
+                    CAMERA_NOT_READY, null));
             return;
         }
         Preconditions.checkState(mImageCaptureEnabled, IMAGE_CAPTURE_DISABLED_ERR_MSG);
-        Preconditions.checkNotNull(mImageCapture);
         mImageCapture.takePicture(executor, callback);
-    }
-
-    /**
-     * Invalidates and unbinds {@link ImageCapture} so it will be rebuilt and bound later.
-     */
-    private void invalidateImageCapture() {
-        if (mCameraProvider != null && mImageCapture != null) {
-            mCameraProvider.unbind(mImageCapture);
-        }
-        mImageCapture = null;
-        mCamera = null;
-    }
-
-    /**
-     * Creates {@link ImageCapture} object based on the current user settings.
-     */
-    @Nullable
-    private ImageCapture createImageCapture() {
-        if (!mImageCaptureEnabled) {
-            return null;
-        }
-        return new ImageCapture.Builder().setFlashMode(mFlashMode).build();
     }
 
     // -----------------
@@ -362,8 +347,10 @@ abstract class CameraController {
             stopRecording();
         }
         mVideoCaptureEnabled = videoCaptureEnabled;
-        invalidateVideoCapture();
-        mCamera = startCamera();
+        if (mCameraProvider != null && !videoCaptureEnabled) {
+            mCameraProvider.unbind(mVideoCapture);
+        }
+        startCameraAndTrackStates();
     }
 
     /**
@@ -378,7 +365,10 @@ abstract class CameraController {
             Executor executor, final VideoCapture.OnVideoSavedCallback callback) {
         Threads.checkMainThread();
         Preconditions.checkState(mVideoCaptureEnabled, VIDEO_CAPTURE_DISABLED_ERR_MSG);
-        Preconditions.checkNotNull(mVideoCapture);
+        if (mVideoCapture == null) {
+            callback.onError(ImageCapture.ERROR_UNKNOWN, CAMERA_NOT_READY, null);
+            return;
+        }
         mVideoCapture.startRecording(outputFileOptions, executor,
                 new VideoCapture.OnVideoSavedCallback() {
                     @Override
@@ -418,28 +408,6 @@ abstract class CameraController {
         return mVideoIsRecording.get();
     }
 
-    /**
-     * Creates {@link VideoCapture} object based on the current user settings.
-     */
-    @Nullable
-    private VideoCapture createVideoCapture() {
-        if (!mVideoCaptureEnabled) {
-            return null;
-        }
-        return new VideoCapture.Builder().build();
-    }
-
-    /**
-     * Invalidates and unbinds {@link ImageCapture} so it will be rebuilt and bound later.
-     */
-    private void invalidateVideoCapture() {
-        if (mCameraProvider != null && mImageCapture != null) {
-            mCameraProvider.unbind(mVideoCapture);
-        }
-        mVideoCapture = null;
-        mCamera = null;
-    }
-
     // -----------------
     // Camera control
     // -----------------
@@ -456,18 +424,7 @@ abstract class CameraController {
             // Preview is required. Unbind everything if Preview is down.
             mCameraProvider.unbindAll();
         }
-
-        // Recreate preview and nullify other use cases. This is necessary because use cases are
-        // not yet reusable.
-        // TODO(b/148791439): remove once use cases are reusable.
-        if (mPreview != null) {
-            Preconditions.checkNotNull(mSurfaceProvider);
-            Preconditions.checkNotNull(mPreviewSize);
-            mPreview = createPreview(mSurfaceProvider, mPreviewSize);
-        }
-        mImageCapture = null;
-
-        mCamera = startCamera();
+        startCameraAndTrackStates();
     }
 
     /**
@@ -479,9 +436,229 @@ abstract class CameraController {
         return mCameraSelector;
     }
 
-    // TODO(b/148791439): Handle rotation so the output is always in gravity orientation.
+    /**
+     * Returns whether pinch-to-zoom is enabled.
+     *
+     * <p> By default pinch-to-zoom is enabled.
+     *
+     * @return True if pinch-to-zoom is enabled.
+     */
+    @MainThread
+    public boolean isPinchToZoomEnabled() {
+        Threads.checkMainThread();
+        return mPinchToZoomEnabled;
+    }
 
-    // TODO(b/148791439): Support CameraControl
+    /**
+     * Enables/disables pinch-to-zoom.
+     *
+     * <p>Once enabled, end user can pinch on the {@link PreviewView} to zoom in/out if the bound
+     * camera supports zooming.
+     *
+     * @param enabled True to enable pinch-to-zoom.
+     */
+    @MainThread
+    public void setPinchToZoomEnabled(boolean enabled) {
+        Threads.checkMainThread();
+        mPinchToZoomEnabled = enabled;
+    }
+
+    /**
+     * Called by {@link PreviewView} for a pinch-to-zoom event.
+     */
+    @SuppressWarnings("FutureReturnValueIgnored")
+    void onPinchToZoom(float pinchToZoomScale) {
+        if (mCamera == null) {
+            Logger.d(TAG, CAMERA_NOT_READY);
+            return;
+        }
+        if (!mPinchToZoomEnabled) {
+            Logger.d(TAG, "Pinch to zoom disabled.");
+            return;
+        }
+        Logger.d(TAG, "Pinch to zoom with scale: " + pinchToZoomScale);
+
+        ZoomState zoomState = getZoomState().getValue();
+        if (zoomState == null) {
+            return;
+        }
+        float clampedRatio = zoomState.getZoomRatio() * speedUpZoomBy2X(pinchToZoomScale);
+        // Clamp the ratio with the zoom range.
+        clampedRatio = Math.min(Math.max(clampedRatio, zoomState.getMinZoomRatio()),
+                zoomState.getMaxZoomRatio());
+        setZoomRatio(clampedRatio);
+    }
+
+    private float speedUpZoomBy2X(float scaleFactor) {
+        if (scaleFactor > 1f) {
+            return 1.0f + (scaleFactor - 1.0f) * 2;
+        } else {
+            return 1.0f - (1.0f - scaleFactor) * 2;
+        }
+    }
+
+    /**
+     * Called by {@link PreviewView} for a tap-to-focus event.
+     */
+    @SuppressWarnings("FutureReturnValueIgnored")
+    void onTapToFocus(MeteringPoint meteringPoint) {
+        if (mCamera == null) {
+            Logger.w(TAG, CAMERA_NOT_READY);
+            return;
+        }
+        if (!mTapToFocusEnabled) {
+            Logger.d(TAG, "Tap to focus disabled. ");
+            return;
+        }
+        Logger.d(TAG, "Tap to focus: " + meteringPoint.getX() + "x" + meteringPoint.getY());
+        mCamera.getCameraControl().startFocusAndMetering(
+                new FocusMeteringAction.Builder(meteringPoint).build());
+    }
+
+    /**
+     * Returns whether tap-to-focus is enabled.
+     *
+     * <p> By default tap-to-focus is enabled.
+     *
+     * @return True if tap-to-focus is enabled.
+     */
+    @MainThread
+    public boolean isTapToFocusEnabled() {
+        Threads.checkMainThread();
+        return mTapToFocusEnabled;
+    }
+
+    /**
+     * Enables/disables tap-to-focus.
+     *
+     * <p>Once enabled, end user can tap on the {@link PreviewView} to set focus point.
+     *
+     * @param enabled True to enable tap-to-focus.
+     */
+    @MainThread
+    public void setTapToFocusEnabled(boolean enabled) {
+        Threads.checkMainThread();
+        mTapToFocusEnabled = enabled;
+    }
+
+    /**
+     * Returns a {@link LiveData} of {@link ZoomState}.
+     *
+     * <p>The LiveData will be updated whenever the set zoom state has been changed. This can
+     * occur when the application updates the zoom via {@link #setZoomRatio(float)}
+     * or {@link #setLinearZoom(float)}. The zoom state can also change anytime a
+     * camera starts up, for example when {@link #setCameraSelector} is called.
+     *
+     * @see CameraInfo#getZoomState()
+     */
+    @MainThread
+    public LiveData<ZoomState> getZoomState() {
+        Threads.checkMainThread();
+        return mZoomState;
+    }
+
+    /**
+     * Sets current zoom by ratio.
+     *
+     * <p>Valid zoom values range from {@link ZoomState#getMinZoomRatio()} to
+     * {@link ZoomState#getMaxZoomRatio()}.
+     *
+     * <p> No-ops if camera is not ready.
+     *
+     * @param zoomRatio The requested zoom ratio.
+     * @return a {@link ListenableFuture} which is finished when camera is set to the given ratio.
+     * It fails with {@link CameraControl.OperationCanceledException} if there is newer value
+     * being set or camera is closed. If the ratio is out of range, it fails with
+     * {@link IllegalArgumentException}. Cancellation of this future is a no-op.
+     * @see #getZoomState()
+     * @see CameraControl#setZoomRatio(float)
+     */
+    @MainThread
+    public ListenableFuture<Void> setZoomRatio(float zoomRatio) {
+        Threads.checkMainThread();
+        if (mCamera == null) {
+            Logger.w(TAG, CAMERA_NOT_READY);
+            return Futures.immediateFuture(null);
+        }
+        return mCamera.getCameraControl().setZoomRatio(zoomRatio);
+    }
+
+    /**
+     * Sets current zoom by a linear zoom value ranging from 0f to 1.0f.
+     *
+     * LinearZoom 0f represents the minimum zoom while linearZoom 1.0f represents the maximum
+     * zoom. The advantage of linearZoom is that it ensures the field of view (FOV) varies
+     * linearly with the linearZoom value, for use with slider UI elements (while
+     * {@link #setZoomRatio(float)} works well for pinch-zoom gestures).
+     *
+     * <p> No-ops if camera is not ready.
+     *
+     * @return a {@link ListenableFuture} which is finished when camera is set to the given ratio.
+     * It fails with {@link CameraControl.OperationCanceledException} if there is newer value
+     * being set or camera is closed. If the ratio is out of range, it fails with
+     * {@link IllegalArgumentException}. Cancellation of this future is a no-op.
+     * @see CameraControl#setLinearZoom(float)
+     */
+    @MainThread
+    public ListenableFuture<Void> setLinearZoom(float linearZoom) {
+        Threads.checkMainThread();
+        if (mCamera == null) {
+            Logger.w(TAG, CAMERA_NOT_READY);
+            return Futures.immediateFuture(null);
+        }
+        return mCamera.getCameraControl().setLinearZoom(linearZoom);
+    }
+
+    /**
+     * Returns a {@link LiveData} of current {@link TorchState}.
+     *
+     * <p>The torch can be turned on and off via {@link #enableTorch(boolean)} which
+     * will trigger the change event to the returned {@link LiveData}.
+     *
+     * @return a {@link LiveData} containing current torch state.
+     * @see CameraInfo#getTorchState()
+     */
+    @MainThread
+    public LiveData<Integer> getTorchState() {
+        Threads.checkMainThread();
+        return mTorchState;
+    }
+
+    /**
+     * Enable the torch or disable the torch.
+     *
+     * <p> No-ops if camera is not ready.
+     *
+     * @param torchEnabled true to turn on the torch, false to turn it off.
+     * @return A {@link ListenableFuture} which is successful when the torch was changed to the
+     * value specified. It fails when it is unable to change the torch state. Cancellation of
+     * this future is a no-op.
+     * @see CameraControl#enableTorch(boolean)
+     */
+    @MainThread
+    public ListenableFuture<Void> enableTorch(boolean torchEnabled) {
+        Threads.checkMainThread();
+        if (mCamera == null) {
+            Logger.w(TAG, CAMERA_NOT_READY);
+            return Futures.immediateFuture(null);
+        }
+        return mCamera.getCameraControl().enableTorch(torchEnabled);
+    }
+
+    // TODO(b/148791439): Handle rotation so the output is always in gravity orientation.
+    // TODO(b/148791439): Give user a way to tell if the camera provider is ready.
+
+    /**
+     * Binds use cases, gets a new {@link Camera} instance and tracks the state of the camera.
+     */
+    void startCameraAndTrackStates() {
+        mCamera = startCamera();
+        if (mCamera == null) {
+            return;
+        }
+        mZoomState.setSource(mCamera.getCameraInfo().getZoomState());
+        mTorchState.setSource(mCamera.getCameraInfo().getTorchState());
+    }
 
     /**
      * Creates {@link UseCaseGroup} from all the use cases.
@@ -491,26 +668,22 @@ abstract class CameraController {
      */
     @UseExperimental(markerClass = ExperimentalUseCaseGroup.class)
     protected UseCaseGroup createUseCaseGroup() {
-        UseCaseGroup.Builder builder = new UseCaseGroup.Builder();
-        if (mPreview == null) {
-            Log.d(TAG, "PreviewView is not ready.");
+        if (mCameraProvider == null) {
+            Logger.d(TAG, CAMERA_NOT_READY);
             return null;
         }
-        builder.addUseCase(mPreview);
-
-        // Add ImageCapture.
-        if (mImageCapture == null) {
-            mImageCapture = createImageCapture();
+        if (mSurfaceProvider == null || mPreview == null) {
+            // Preview is required. Return early if preview Surface is not ready.
+            Logger.d(TAG, "Preview is not ready.");
+            return null;
         }
-        if (mImageCapture != null) {
+
+        UseCaseGroup.Builder builder = new UseCaseGroup.Builder().addUseCase(mPreview);
+
+        if (mImageCaptureEnabled && mImageCapture != null) {
             builder.addUseCase(mImageCapture);
         }
-
-        // Add VideoCapture.
-        if (mVideoCapture == null) {
-            mVideoCapture = createVideoCapture();
-        }
-        if (mVideoCapture != null) {
+        if (mVideoCaptureEnabled && mVideoCapture != null) {
             builder.addUseCase(mVideoCapture);
         }
 

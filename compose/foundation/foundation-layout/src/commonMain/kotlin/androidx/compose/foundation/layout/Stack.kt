@@ -31,22 +31,27 @@ import androidx.compose.ui.unit.IntSize
 import kotlin.math.max
 
 /**
- * A composable that positions its children relative to its edges.
+ * A layout composable that positions its children relative to its edges.
  * The component is useful for drawing children that overlap. The children will always be
  * drawn in the order they are specified in the body of the [Stack].
- * Use [StackScope.gravity] modifier to define the position of the target element inside the
- * [Stack] box.
+ * When children are smaller than the parent, by default they will be positioned inside the [Stack]
+ * according to the [alignment]. If individual alignment of the children is needed, apply the
+ * [StackScope.align] modifier to a child to specify its alignment.
  *
  * Example usage:
  *
  * @sample androidx.compose.foundation.layout.samples.SimpleStack
+ *
+ * @param modifier The modifier to be applied to the layout.
+ * @param alignment The default alignment inside the Stack.
  */
 @Composable
 fun Stack(
     modifier: Modifier = Modifier,
+    alignment: Alignment = Alignment.TopStart,
     children: @Composable StackScope.() -> Unit
 ) {
-    val stackChildren: @Composable () -> Unit = { StackScope().children() }
+    val stackChildren: @Composable () -> Unit = { StackScope.children() }
 
     Layout(stackChildren, modifier = modifier) { measurables, constraints ->
         val placeables = arrayOfNulls<Placeable>(measurables.size)
@@ -76,10 +81,10 @@ fun Stack(
         layout(stackWidth, stackHeight) {
             (0 until measurables.size).forEach { i ->
                 val measurable = measurables[i]
-                val childData = measurable.stackChildData
+                val childAlignment = measurable.stackChildData?.alignment ?: alignment
                 val placeable = placeables[i]!!
 
-                val position = childData.alignment.align(
+                val position = childAlignment.align(
                     IntSize(
                         stackWidth - placeable.width,
                         stackHeight - placeable.height
@@ -97,12 +102,17 @@ fun Stack(
  */
 @LayoutScopeMarker
 @Immutable
-class StackScope {
+interface StackScope {
     /**
-     * Pull the content element to a specific [Alignment] within the [Stack].
+     * Pull the content element to a specific [Alignment] within the [Stack]. This alignment will
+     * have priority over the [Stack]'s `alignment` parameter.
      */
     @Stable
-    fun Modifier.gravity(align: Alignment) = this.then(StackGravityModifier(align))
+    fun Modifier.align(alignment: Alignment) = this.then(StackChildData(alignment, false))
+
+    @Stable
+    @Deprecated("gravity has been renamed to align.", ReplaceWith("align(align)"))
+    fun Modifier.gravity(align: Alignment) = this.then(StackChildData(align, false))
 
     /**
      * Size the element to match the size of the [Stack] after all other content elements have
@@ -117,30 +127,20 @@ class StackScope {
      * available space.
      */
     @Stable
-    fun Modifier.matchParentSize() = this.then(StretchGravityModifier)
+    fun Modifier.matchParentSize() = this.then(StretchAlignModifier)
 
-    internal companion object {
-        @Stable
-        val StretchGravityModifier: ParentDataModifier =
-            StackGravityModifier(Alignment.Center, true)
-    }
+    companion object : StackScope
 }
 
+@Stable
+private val StretchAlignModifier: ParentDataModifier = StackChildData(Alignment.Center, true)
+
+private val Measurable.stackChildData: StackChildData? get() = parentData as? StackChildData
+private val Measurable.stretch: Boolean get() = stackChildData?.stretch ?: false
+
 private data class StackChildData(
-    val alignment: Alignment,
-    val stretch: Boolean = false
-)
-
-private val Measurable.stackChildData: StackChildData
-    get() = (parentData as? StackChildData) ?: StackChildData(Alignment.TopStart)
-private val Measurable.stretch: Boolean
-    get() = stackChildData.stretch
-
-private data class StackGravityModifier(
-    val alignment: Alignment,
-    val stretch: Boolean = false
+    var alignment: Alignment,
+    var stretch: Boolean = false
 ) : ParentDataModifier {
-    override fun Density.modifyParentData(parentData: Any?): StackChildData {
-        return ((parentData as? StackChildData) ?: StackChildData(alignment, stretch))
-    }
+    override fun Density.modifyParentData(parentData: Any?) = this@StackChildData
 }

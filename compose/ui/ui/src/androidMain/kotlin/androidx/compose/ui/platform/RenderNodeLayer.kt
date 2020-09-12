@@ -16,16 +16,17 @@
 
 package androidx.compose.ui.platform
 
-import android.annotation.TargetApi
-import android.graphics.Matrix
-import android.graphics.RenderNode
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.ui.DrawLayerModifier
 import androidx.compose.ui.TransformOrigin
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.CanvasHolder
+import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.setFrom
 import androidx.compose.ui.node.OwnedLayer
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -33,7 +34,7 @@ import androidx.compose.ui.unit.IntSize
 /**
  * RenderNode implementation of OwnedLayer.
  */
-@TargetApi(29)
+@RequiresApi(Build.VERSION_CODES.M)
 internal class RenderNodeLayer(
     val ownerView: AndroidComposeView,
     drawLayerModifier: DrawLayerModifier,
@@ -46,7 +47,7 @@ internal class RenderNodeLayer(
     private var isDirty = false
     private val outlineResolver = OutlineResolver(ownerView.density)
     private var isDestroyed = false
-    private var cacheMatrix: Matrix? = null
+    private var androidMatrixCache: android.graphics.Matrix? = null
     private var drawnWithZ = false
 
     private val canvasHolder = CanvasHolder()
@@ -58,8 +59,10 @@ internal class RenderNodeLayer(
      */
     private var transformOrigin: TransformOrigin = TransformOrigin.Center
 
-    private val renderNode = RenderNode(null).apply {
-        setHasOverlappingRendering(true)
+    private val renderNode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        RenderNodeApi29(ownerView)
+    } else {
+        RenderNodeApi23(ownerView)
     }
 
     override val layerId: Long
@@ -115,11 +118,11 @@ internal class RenderNodeLayer(
         renderNode.pivotX = transformOrigin.pivotFractionX * width
         renderNode.pivotY = transformOrigin.pivotFractionY * height
         if (renderNode.setPosition(
-            renderNode.left,
-            renderNode.top,
-            renderNode.left + width,
-            renderNode.top + height
-        )) {
+                renderNode.left,
+                renderNode.top,
+                renderNode.left + width,
+                renderNode.top + height
+            )) {
             outlineResolver.update(Size(width.toFloat(), height.toFloat()))
             renderNode.setOutline(outlineResolver.outline)
             invalidate()
@@ -152,7 +155,12 @@ internal class RenderNodeLayer(
      * to re-record its drawing.
      */
     private fun triggerRepaint() {
-        ownerView.parent?.onDescendantInvalidated(ownerView, ownerView)
+        // onDescendantInvalidated is only supported on O+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ownerView.parent?.onDescendantInvalidated(ownerView, ownerView)
+        } else {
+            ownerView.invalidate()
+        }
     }
 
     override fun drawLayer(canvas: Canvas) {
@@ -163,7 +171,7 @@ internal class RenderNodeLayer(
             if (drawnWithZ) {
                 canvas.enableZ()
             }
-            androidCanvas.drawRenderNode(renderNode)
+            renderNode.drawInto(androidCanvas)
             if (drawnWithZ) {
                 canvas.disableZ()
             }
@@ -174,22 +182,11 @@ internal class RenderNodeLayer(
     }
 
     override fun updateDisplayList() {
-        if (isDirty || !renderNode.hasDisplayList()) {
-            canvasHolder.drawInto(renderNode.beginRecording()) {
-                val clipPath = outlineResolver.clipPath
-                val manuallyClip = renderNode.clipToOutline && clipPath != null
-                if (manuallyClip) {
-                    save()
-                    clipPath(clipPath!!)
-                }
-                ownerView.observeLayerModelReads(this@RenderNodeLayer) {
-                    drawBlock(this)
-                }
-                if (manuallyClip) {
-                    restore()
-                }
-            }
-            renderNode.endRecording()
+        if (isDirty || !renderNode.hasDisplayList) {
+            val clipPath = if (renderNode.clipToOutline) outlineResolver.clipPath else null
+
+            renderNode.record(canvasHolder, clipPath, this, drawBlock)
+
             isDirty = false
         }
     }
@@ -199,9 +196,11 @@ internal class RenderNodeLayer(
         ownerView.dirtyLayers -= this
     }
 
-    override fun getMatrix(): Matrix {
-        val matrix = cacheMatrix ?: Matrix().also { cacheMatrix = it }
-        renderNode.getMatrix(matrix)
-        return matrix
+    override fun getMatrix(matrix: Matrix) {
+        val androidMatrix = androidMatrixCache ?: android.graphics.Matrix().also {
+            androidMatrixCache = it
+        }
+        renderNode.getMatrix(androidMatrix)
+        matrix.setFrom(androidMatrix)
     }
 }

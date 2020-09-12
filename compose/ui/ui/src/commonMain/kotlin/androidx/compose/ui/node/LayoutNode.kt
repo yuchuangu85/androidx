@@ -330,7 +330,7 @@ class LayoutNode : Measurable, Remeasurement {
         }
         val parentLayoutNode = parent
         if (parentLayoutNode != null) {
-            parentLayoutNode.onInvalidate()
+            parentLayoutNode.invalidateLayer()
             parentLayoutNode.requestRemeasure()
         }
         alignmentLinesQueryOwner = null
@@ -480,16 +480,17 @@ class LayoutNode : Measurable, Remeasurement {
         }
 
     /**
+     * The screen density to be used by this layout.
+     */
+    var density: Density = Density(1f)
+
+    /**
      * The scope used to run the [MeasureBlocks.measure]
      * [MeasureBlock][androidx.compose.ui.MeasureBlock].
      */
     val measureScope: MeasureScope = object : MeasureScope(), Density {
-        private val ownerDensity: Density
-            get() = owner?.density ?: Density(1f)
-        override val density: Float
-            get() = ownerDensity.density
-        override val fontScale: Float
-            get() = ownerDensity.fontScale
+        override val density: Float get() = this@LayoutNode.density.density
+        override val fontScale: Float get() = this@LayoutNode.density.fontScale
         override val layoutDirection: LayoutDirection get() = this@LayoutNode.layoutDirection
     }
 
@@ -527,10 +528,19 @@ class LayoutNode : Measurable, Remeasurement {
     internal val mDrawScope: LayoutNodeDrawScope = sharedDrawScope
 
     /**
-     * Whether or not this has been placed in the hierarchy.
+     * Whether or not this LayoutNode and all of its parents have been placed in the hierarchy.
      */
     var isPlaced = false
         internal set
+
+    /**
+     * Whether or not this LayoutNode was placed by its parent during the last layout.
+     * It is possible that this value is not equals to [isPlaced] when:
+     * 1) The node was placed by the parent, but the grandparent didn't place the parent
+     * 2) This value is set to false before the start of the layout pass to be able to detect the
+     * nodes which were placed previously but not placed during this pass
+     */
+    private var isPlacedByParent = false
 
     /**
      * Remembers how the node was measured by the parent.
@@ -601,11 +611,18 @@ class LayoutNode : Measurable, Remeasurement {
     internal var innerLayerWrapper: LayerWrapper? = null
 
     /**
-     * Returns the inner-most layer as part of this LayoutNode or from the containing LayoutNode.
-     * This is added for performance so that LayoutNodeWrapper.findLayer() can be faster.
+     * Invalidates the inner-most layer as part of this LayoutNode or from the containing
+     * LayoutNode. This is added for performance so that LayoutNodeWrapper.invalidateLayer() can be
+     * faster.
      */
-    internal fun findLayer(): OwnedLayer? {
-        return innerLayerWrapper?.layer ?: parent?.findLayer()
+    internal fun invalidateLayer() {
+        val innerLayerWrapper = innerLayerWrapper
+        if (innerLayerWrapper != null) {
+            innerLayerWrapper.invalidateLayer()
+        } else {
+            val parent = parent
+            parent?.invalidateLayer()
+        }
     }
 
     /**
@@ -729,7 +746,7 @@ class LayoutNode : Measurable, Remeasurement {
             if (invalidateParentLayer || startZIndex != outerZIndexModifier ||
                 shouldInvalidateParentLayer()
             ) {
-                parent?.onInvalidate()
+                parent?.invalidateLayer()
             }
         }
 
@@ -830,7 +847,28 @@ class LayoutNode : Measurable, Remeasurement {
         }
     }
 
-    internal fun layoutChildren() {
+    /**
+     * Invoked when the parent placed the node. It will trigger the layout.
+     */
+    internal fun onNodePlaced() {
+        if (!isPlaced) {
+            isPlaced = true
+            // when the visibility of a child has been changed we need to invalidate
+            // parents inner layer - the layer in which this child will be drawn
+            parent?.invalidateLayer()
+            // plus all the inner layers that were invalidated while the node was not placed
+            forEachDelegate {
+                if (it is LayerWrapper && it.lastDrawingWasSkipped) {
+                    it.layer.invalidate()
+                }
+            }
+            markSubtreeAsPlaced()
+        }
+        isPlacedByParent = true
+        layoutChildren()
+    }
+
+    private fun layoutChildren() {
         if (layoutState == NeedsRelayout) {
             onBeforeLayoutChildren()
         }
@@ -841,7 +879,7 @@ class LayoutNode : Measurable, Remeasurement {
             val owner = requireOwner()
             owner.observeLayoutModelReads(this) {
                 _children.forEach { child ->
-                    child.isPlaced = false
+                    child.isPlacedByParent = false
                     if (alignmentLinesRequired && child.layoutState == Ready &&
                         !child.alignmentLinesCalculatedDuringLastLayout
                     ) {
@@ -854,6 +892,12 @@ class LayoutNode : Measurable, Remeasurement {
                 }
                 innerLayoutNodeWrapper.measureResult.placeChildren()
                 _children.forEach { child ->
+                    // we set `isPlacedByParent` to false for all the children, then
+                    // during the placeChildren() invocation it will be set to true for all
+                    // the placed children.
+                    if (!child.isPlacedByParent) {
+                        child.markSubtreeAsNotPlaced()
+                    }
                     child.alignmentLinesRead = child.alignmentLinesQueriedSinceLastLayout
                 }
             }
@@ -885,6 +929,25 @@ class LayoutNode : Measurable, Remeasurement {
                 }
             }
             layoutState = Ready
+        }
+    }
+
+    private fun markSubtreeAsPlaced() {
+        _children.forEach {
+            // if the layout state is not Ready then isPlaced will be set during the layout
+            if (it.layoutState == Ready && it.isPlacedByParent) {
+                it.isPlaced = true
+                it.markSubtreeAsPlaced()
+            }
+        }
+    }
+
+    private fun markSubtreeAsNotPlaced() {
+        if (isPlaced) {
+            isPlaced = false
+            _children.forEach {
+                markSubtreeAsNotPlaced()
+            }
         }
     }
 
@@ -988,13 +1051,6 @@ class LayoutNode : Measurable, Remeasurement {
      */
     fun requestRelayout() {
         owner?.onRequestRelayout(this)
-    }
-
-    /**
-     * Used to request a new draw pass from the owner.
-     */
-    fun onInvalidate() {
-        owner?.onInvalidate(this)
     }
 
     /**
@@ -1201,6 +1257,7 @@ class LayoutNode : Measurable, Remeasurement {
 internal object LayoutEmitHelper {
     val constructor: () -> LayoutNode = { LayoutNode() }
     val setModifier: LayoutNode.(Modifier) -> Unit = { this.modifier = it }
+    val setDensity: LayoutNode.(Density) -> Unit = { this.density = it }
     val setMeasureBlocks: LayoutNode.(LayoutNode.MeasureBlocks) -> Unit =
         { this.measureBlocks = it }
     val setRef: LayoutNode.(Ref<LayoutNode>) -> Unit = { it.value = this }

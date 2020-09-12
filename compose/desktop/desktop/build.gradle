@@ -35,10 +35,10 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(KOTLIN_STDLIB_COMMON)
-            api project(":compose:runtime:runtime")
-            api project(":compose:ui:ui")
             api project(":compose:foundation:foundation")
             api project(":compose:material:material")
+            api project(":compose:runtime:runtime")
+            api project(":compose:ui:ui")
         }
 
         jvmMain.dependencies {
@@ -47,20 +47,22 @@ kotlin {
             api(KOTLIN_COROUTINES_CORE)
 
             api(SKIKO)
-
-            implementation(KOTLIN_COROUTINES_SWING)
-
-            // TODO: move to jvmTest
-            implementation(JUNIT)
         }
 
         jvmTest {
             resources.srcDirs += new File(SupportConfigKt.getExternalProjectPath(project), "noto-fonts/other/")
             resources.srcDirs += "src/jvmTest/res"
             dependencies {
+                implementation(KOTLIN_COROUTINES_TEST)
                 implementation(SKIKO_CURRENT_OS)
+                implementation project(":ui:ui-test")
+                implementation(JUNIT)
                 implementation(TRUTH)
             }
+        }
+
+        test.dependencies {
+            implementation project(":ui:ui-test")
         }
     }
 }

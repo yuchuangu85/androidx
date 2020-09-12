@@ -27,7 +27,8 @@ import android.opengl.GLES20
 import android.util.Log
 import android.view.SurfaceHolder
 import androidx.annotation.CallSuper
-import androidx.wear.watchfacestyle.UserStyleManager
+import androidx.annotation.UiThread
+import androidx.wear.watchface.style.UserStyleRepository
 
 import java.nio.ByteBuffer
 
@@ -50,17 +51,17 @@ private val EGL_CONTEXT_ATTRIB_LIST =
 
 private val EGL_SURFACE_ATTRIB_LIST = intArrayOf(EGL14.EGL_NONE)
 
-/**
- * The base class {@link GLES20} WatchFace rendering. Generally this class's methods should be
- * called on the main thread only.
- */
+/** The base class {@link GLES20} WatchFace rendering. */
 abstract class Gles2Renderer (
     /** The {@link SurfaceHolder} that {@link onDraw} will draw into. */
     surfaceHolder: SurfaceHolder,
 
-    /** The associated {@link UserStyleManager}. */
-    userStyleManager: UserStyleManager
-) : Renderer(surfaceHolder, userStyleManager) {
+    /** The associated {@link UserStyleRepository}. */
+    userStyleRepository: UserStyleRepository,
+
+    /** The associated {@link WatchState}. */
+    watchState: WatchState
+) : Renderer(surfaceHolder, userStyleRepository, watchState) {
     private companion object {
         private const val TAG = "Gles2WatchFace"
     }
@@ -97,10 +98,6 @@ abstract class Gles2Renderer (
         createWindowSurface(eglDisplay!!, eglConfig, surfaceHolder)
 
     private var calledOnGlContextCreated = false
-
-    init {
-        makeContextCurrent()
-    }
 
     /**
      * Returns the attributes to be passed to {@link EGL14.eglChooseConfig}. By default this selects
@@ -224,7 +221,8 @@ abstract class Gles2Renderer (
         }
     }
 
-    /** Called when a new GL context is created. It's safe to use GL APIs in this method.  */
+    /** Called when a new GL context is created. It's safe to use GL APIs in this method. */
+    @UiThread
     open fun onGlContextCreated() {}
 
     /**
@@ -233,19 +231,21 @@ abstract class Gles2Renderer (
      * @param width width of surface in pixels
      * @param height height of surface in pixels
      */
+    @UiThread
     open fun onGlSurfaceCreated(width: Int, height: Int) {}
 
-    override fun onDrawInternal(
+    internal override fun renderInternal(
         calendar: Calendar
     ) {
         makeContextCurrent()
-        onDraw(calendar)
+        render(calendar)
         if (!EGL14.eglSwapBuffers(eglDisplay, eglSurface)) {
             Log.w(TAG, "eglSwapBuffers failed")
         }
     }
 
-    override fun takeScreenshot(
+    /** {@inheritDoc} */
+    internal override fun takeScreenshot(
         calendar: Calendar,
         @DrawMode drawMode: Int
     ): Bitmap {
@@ -254,7 +254,7 @@ abstract class Gles2Renderer (
         val pixelBuf = ByteBuffer.allocateDirect(width * height * 4)
         makeContextCurrent()
         this.drawMode = drawMode
-        onDraw(calendar)
+        render(calendar)
         GLES20.glFinish()
         GLES20.glReadPixels(0, 0, width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixelBuf)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -263,14 +263,12 @@ abstract class Gles2Renderer (
     }
 
     /**
-     * Called on the main thread. Sub-classes should override this to implement their rendering
-     * logic which should respect the current {@link DrawMode}. For correct functioning watch
-     * faces must use the supplied {@link Calendar} and avoid using any other ways of getting the
-     * time.
+     * Sub-classes should override this to implement their rendering logic which should respect
+     * the current {@link DrawMode}. For correct functioning watch faces must use the supplied
+     * {@link Calendar} and avoid using any other ways of getting the time.
      *
      * @param calendar The current {@link Calendar}
      */
-    protected abstract fun onDraw(
-        calendar: Calendar
-    )
+    @UiThread
+    abstract fun render(calendar: Calendar)
 }

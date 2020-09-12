@@ -318,6 +318,7 @@ package androidx.core.app {
     field public static final String CATEGORY_EMAIL = "email";
     field public static final String CATEGORY_ERROR = "err";
     field public static final String CATEGORY_EVENT = "event";
+    field public static final String CATEGORY_LOCATION_SHARING = "location_sharing";
     field public static final String CATEGORY_MESSAGE = "msg";
     field public static final String CATEGORY_NAVIGATION = "navigation";
     field public static final String CATEGORY_PROGRESS = "progress";
@@ -327,8 +328,10 @@ package androidx.core.app {
     field public static final String CATEGORY_SERVICE = "service";
     field public static final String CATEGORY_SOCIAL = "social";
     field public static final String CATEGORY_STATUS = "status";
+    field public static final String CATEGORY_STOPWATCH = "stopwatch";
     field public static final String CATEGORY_SYSTEM = "sys";
     field public static final String CATEGORY_TRANSPORT = "transport";
+    field public static final String CATEGORY_WORKOUT = "workout";
     field @ColorInt public static final int COLOR_DEFAULT = 0; // 0x0
     field public static final int DEFAULT_ALL = -1; // 0xffffffff
     field public static final int DEFAULT_LIGHTS = 4; // 0x4
@@ -2651,7 +2654,7 @@ package androidx.core.view {
   }
 
   public class ViewCompat {
-    ctor protected ViewCompat();
+    ctor @Deprecated protected ViewCompat();
     method public static int addAccessibilityAction(android.view.View, CharSequence, androidx.core.view.accessibility.AccessibilityViewCommand);
     method public static void addKeyboardNavigationClusters(android.view.View, java.util.Collection<android.view.View!>, int);
     method public static void addOnUnhandledKeyEventListener(android.view.View, androidx.core.view.ViewCompat.OnUnhandledKeyEventListenerCompat);
@@ -3554,7 +3557,12 @@ package androidx.core.view.inputmethod {
   public final class EditorInfoCompat {
     ctor @Deprecated public EditorInfoCompat();
     method public static String![] getContentMimeTypes(android.view.inputmethod.EditorInfo!);
+    method public static CharSequence? getInitialSelectedText(android.view.inputmethod.EditorInfo, int);
+    method public static CharSequence? getInitialTextAfterCursor(android.view.inputmethod.EditorInfo, int, int);
+    method public static CharSequence? getInitialTextBeforeCursor(android.view.inputmethod.EditorInfo, int, int);
     method public static void setContentMimeTypes(android.view.inputmethod.EditorInfo, String![]?);
+    method public static void setInitialSurroundingSubText(android.view.inputmethod.EditorInfo, CharSequence, int);
+    method public static void setInitialSurroundingText(android.view.inputmethod.EditorInfo, CharSequence);
     field public static final int IME_FLAG_FORCE_ASCII = -2147483648; // 0x80000000
     field public static final int IME_FLAG_NO_PERSONALIZED_LEARNING = 16777216; // 0x1000000
   }

@@ -34,6 +34,8 @@ import androidx.compose.runtime.SlotTable
 import androidx.compose.runtime.compositionFor
 import androidx.compose.runtime.currentComposer
 import androidx.compose.runtime.emptyContent
+import androidx.compose.runtime.tooling.InspectionTables
+import androidx.compose.ui.Layout
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.R
 import androidx.compose.ui.focus.ExperimentalFocus
@@ -41,12 +43,12 @@ import androidx.compose.ui.gesture.noConsumptionTapGestureFilter
 import androidx.compose.ui.node.ExperimentalLayoutNodeApi
 import androidx.compose.ui.node.LayoutNode
 import androidx.compose.ui.node.UiApplier
-import androidx.compose.ui.selection.SelectionContainer
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import java.util.Collections
 import java.util.WeakHashMap
+import kotlin.math.max
 
 /**
  * Composes the children of the view with the passed in [composable].
@@ -250,6 +252,7 @@ private class WrappedComposition(
     private var addedToLifecycle: Lifecycle? = null
     private var contentWaitingForCreated: @Composable () -> Unit = emptyContent()
 
+    @OptIn(InternalComposeApi::class)
     override fun setContent(content: @Composable () -> Unit) {
         owner.setOnViewTreeOwnersAvailable {
             if (!disposed) {
@@ -261,22 +264,24 @@ private class WrappedComposition(
                 if (lifecycle.currentState.isAtLeast(Lifecycle.State.CREATED)) {
                     original.setContent {
                         @Suppress("UNCHECKED_CAST")
-                        (owner.view.getTag(R.id.inspection_slot_table_set) as?
-                                MutableSet<SlotTable>)
-                            ?.let {
-                                val composer = currentComposer
-                                @OptIn(InternalComposeApi::class)
-                                composer.collectKeySourceInformation()
-                                it.add(composer.slotTable)
+                        val inspectionTable =
+                            owner.view.getTag(R.id.inspection_slot_table_set) as?
+                                    MutableSet<SlotTable>
+                        if (inspectionTable != null) {
+                            inspectionTable.add(currentComposer.slotTable)
+                        }
+                        Providers(InspectionTables provides inspectionTable) {
+                            ProvideAndroidAmbients(owner) {
+                                // TODO(ralu): Please move the modifier to the root layout and
+                                //  remove the [simpleLayout].
+                                simpleLayout(
+                                    modifier = Modifier.noConsumptionTapGestureFilter {
+                                        @OptIn(ExperimentalFocus::class)
+                                        owner.focusManager.clearFocus()
+                                    },
+                                    children = content
+                                )
                             }
-                        ProvideAndroidAmbients(owner) {
-                            SelectionContainer(
-                                modifier = Modifier.noConsumptionTapGestureFilter {
-                                    @OptIn(ExperimentalFocus::class)
-                                    owner.focusManager.clearFocus()
-                                },
-                                children = content
-                            )
                         }
                     }
                 } else {
@@ -302,6 +307,29 @@ private class WrappedComposition(
             if (!disposed) {
                 setContent(contentWaitingForCreated)
                 contentWaitingForCreated = emptyContent()
+            }
+        }
+    }
+}
+
+@Composable
+private fun simpleLayout(modifier: Modifier = Modifier, children: @Composable () -> Unit) {
+    Layout(modifier = modifier, children = children) { measurables, constraints ->
+        val placeables = measurables.map { measurable ->
+            measurable.measure(constraints)
+        }
+
+        val width = placeables.fold(0) { maxWidth, placeable ->
+            max(maxWidth, (placeable.width))
+        }
+
+        val height = placeables.fold(0) { minWidth, placeable ->
+            max(minWidth, (placeable.height))
+        }
+
+        layout(width, height) {
+            placeables.forEach { placeable ->
+                placeable.place(0, 0)
             }
         }
     }

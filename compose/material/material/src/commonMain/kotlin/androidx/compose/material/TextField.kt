@@ -96,12 +96,12 @@ import kotlin.math.roundToInt
  * @param value the input text to be shown in the text field
  * @param onValueChange the callback that is triggered when the input service updates the text. An
  * updated text comes as a parameter of the callback
- * @param label the label to be displayed inside the text field container. The default text style
- * for internal [Text] is [Typography.caption] when the text field is in focus and
- * [Typography.subtitle1] when the text field is not in focus
  * @param modifier a [Modifier] for this text field
  * @param textStyle the style to be applied to the input text. The default [textStyle] uses the
  * [currentTextStyle] defined by the theme
+ * @param label the optional label to be displayed inside the text field container. The default
+ * text style for internal [Text] is [Typography.caption] when the text field is in focus and
+ * [Typography.subtitle1] when the text field is not in focus
  * @param placeholder the optional placeholder to be displayed when the text field is in focus and
  * the input text is empty. The default text style for internal [Text] is [Typography.subtitle1]
  * @param leadingIcon the optional leading icon to be displayed at the beginning of the text field
@@ -134,17 +134,16 @@ import kotlin.math.roundToInt
  * focus, and the color of the label and bottom indicator when the text field is not in focus
  * @param errorColor the alternative color of the label, bottom indicator, cursor and trailing icon
  * used when [isErrorValue] is set to true
- * @param backgroundColor the background color of the text field's container. To the color provided
- * here there will be applied a transparency alpha defined by Material Design specifications
+ * @param backgroundColor the background color of the text field's container
  * @param shape the shape of the text field's container
  */
 @Composable
 fun TextField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = currentTextStyle(),
+    label: @Composable (() -> Unit)? = null,
     placeholder: @Composable (() -> Unit)? = null,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
@@ -157,7 +156,7 @@ fun TextField(
     activeColor: Color = MaterialTheme.colors.primary,
     inactiveColor: Color = MaterialTheme.colors.onSurface,
     errorColor: Color = MaterialTheme.colors.error,
-    backgroundColor: Color = MaterialTheme.colors.onSurface,
+    backgroundColor: Color = MaterialTheme.colors.onSurface.copy(alpha = ContainerAlpha),
     shape: Shape =
         MaterialTheme.shapes.small.copy(bottomLeft = ZeroCornerSize, bottomRight = ZeroCornerSize)
 ) {
@@ -216,12 +215,12 @@ fun TextField(
  * @param value the input [TextFieldValue] to be shown in the text field
  * @param onValueChange the callback that is triggered when the input service updates values in
  * [TextFieldValue]. An updated [TextFieldValue] comes as a parameter of the callback
- * @param label the label to be displayed inside the text field container. The default text style
- * for internal [Text] is [Typography.caption] when the text field is in focus and
- * [Typography.subtitle1] when the text field is not in focus
  * @param modifier a [Modifier] for this text field
  * @param textStyle the style to be applied to the input text. The default [textStyle] uses the
  * [currentTextStyle] defined by the theme
+ * @param label the optional label to be displayed inside the text field container. The default
+ * text style for internal [Text] is [Typography.caption] when the text field is in focus and
+ * [Typography.subtitle1] when the text field is not in focus
  * @param placeholder the optional placeholder to be displayed when the text field is in focus and
  * the input text is empty. The default text style for internal [Text] is [Typography.subtitle1]
  * @param leadingIcon the optional leading icon to be displayed at the beginning of the text field
@@ -254,17 +253,16 @@ fun TextField(
  * focus, and the color of the label and bottom indicator when the text field is not in focus
  * @param errorColor the alternative color of the label, bottom indicator, cursor and trailing icon
  * used when [isErrorValue] is set to true
- * @param backgroundColor the background color of the text field's container. To the color provided
- * here there will be applied a transparency alpha defined by Material Design specifications
+ * @param backgroundColor the background color of the text field's container
  * @param shape the shape of the text field's container
  */
 @Composable
 fun TextField(
     value: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
-    label: @Composable () -> Unit,
     modifier: Modifier = Modifier,
     textStyle: TextStyle = currentTextStyle(),
+    label: @Composable (() -> Unit)? = null,
     placeholder: @Composable (() -> Unit)? = null,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
@@ -277,7 +275,7 @@ fun TextField(
     activeColor: Color = MaterialTheme.colors.primary,
     inactiveColor: Color = MaterialTheme.colors.onSurface,
     errorColor: Color = MaterialTheme.colors.error,
-    backgroundColor: Color = MaterialTheme.colors.onSurface,
+    backgroundColor: Color = MaterialTheme.colors.onSurface.copy(alpha = ContainerAlpha),
     shape: Shape =
         MaterialTheme.shapes.small.copy(bottomLeft = ZeroCornerSize, bottomRight = ZeroCornerSize)
 ) {
@@ -309,8 +307,8 @@ fun TextField(
 internal fun TextFieldLayout(
     modifier: Modifier = Modifier,
     decoratedTextField: @Composable (Modifier) -> Unit,
-    decoratedPlaceholder: @Composable (() -> Unit)?,
-    decoratedLabel: @Composable () -> Unit,
+    decoratedPlaceholder: @Composable ((Modifier) -> Unit)?,
+    decoratedLabel: @Composable (() -> Unit)?,
     leading: @Composable (() -> Unit)?,
     trailing: @Composable (() -> Unit)?,
     leadingColor: Color,
@@ -325,7 +323,7 @@ internal fun TextFieldLayout(
     IconsWithTextFieldLayout(
         modifier = modifier
             .background(
-                color = backgroundColor.applyAlpha(alpha = ContainerAlpha),
+                color = backgroundColor,
                 shape = shape
             )
             .drawIndicatorLine(
@@ -351,8 +349,8 @@ internal fun TextFieldLayout(
 private fun IconsWithTextFieldLayout(
     modifier: Modifier = Modifier,
     textField: @Composable (Modifier) -> Unit,
-    label: @Composable () -> Unit,
-    placeholder: @Composable (() -> Unit)?,
+    label: @Composable (() -> Unit)?,
+    placeholder: @Composable ((Modifier) -> Unit)?,
     leading: @Composable (() -> Unit)?,
     trailing: @Composable (() -> Unit)?,
     leadingColor: Color,
@@ -379,20 +377,19 @@ private fun IconsWithTextFieldLayout(
             }
             val padding = Modifier.padding(horizontal = TextFieldPadding)
             if (placeholder != null) {
+                placeholder(Modifier.layoutId(PlaceholderId).then(padding))
+            }
+            if (label != null) {
                 Box(
-                    modifier = Modifier.layoutId(PlaceholderId).then(padding),
-                    children = placeholder
+                    modifier = Modifier
+                        .layoutId(LabelId)
+                        .iconPadding(
+                            start = TextFieldPadding,
+                            end = TextFieldPadding
+                        ),
+                    children = label
                 )
             }
-            Box(
-                modifier = Modifier
-                    .layoutId(LabelId)
-                    .iconPadding(
-                        start = TextFieldPadding,
-                        end = TextFieldPadding
-                    ),
-                children = label
-            )
             textField(Modifier.layoutId(TextFieldId).then(padding))
         },
         modifier = modifier
@@ -424,10 +421,10 @@ private fun IconsWithTextFieldLayout(
                 horizontal = -occupiedSpaceHorizontally
             )
         val labelPlaceable =
-            measurables.first { it.id == LabelId }.measure(labelConstraints)
-        val lastBaseline = labelPlaceable[LastBaseline].let {
+            measurables.find { it.id == LabelId }?.measure(labelConstraints)
+        val lastBaseline = labelPlaceable?.get(LastBaseline)?.let {
             if (it != AlignmentLine.Unspecified) it else labelPlaceable.height
-        }
+        } ?: 0
         val effectiveLabelBaseline = max(lastBaseline, baseLineOffset)
 
         // measure input field
@@ -466,7 +463,7 @@ private fun IconsWithTextFieldLayout(
         )
 
         layout(width, height) {
-            if (labelPlaceable.width != 0) {
+            if (widthOrZero(labelPlaceable) != 0) {
                 val labelEndPosition =
                     (baseLineOffset - lastBaseline).coerceAtLeast(0)
                 place(
@@ -500,13 +497,13 @@ private fun calculateWidth(
     leadingPlaceable: Placeable?,
     trailingPlaceable: Placeable?,
     textFieldPlaceable: Placeable,
-    labelPlaceable: Placeable,
+    labelPlaceable: Placeable?,
     placeholderPlaceable: Placeable?,
     constraints: Constraints
 ): Int {
     val middleSection = maxOf(
         textFieldPlaceable.width,
-        labelPlaceable.width,
+        widthOrZero(labelPlaceable),
         widthOrZero(placeholderPlaceable)
     )
     val wrappedWidth =
@@ -544,7 +541,7 @@ private fun Placeable.PlacementScope.place(
     width: Int,
     height: Int,
     textfieldPlaceable: Placeable,
-    labelPlaceable: Placeable,
+    labelPlaceable: Placeable?,
     placeholderPlaceable: Placeable?,
     leadingPlaceable: Placeable?,
     trailingPlaceable: Placeable?,
@@ -560,17 +557,18 @@ private fun Placeable.PlacementScope.place(
         width - trailingPlaceable.width,
         Alignment.CenterVertically.align(height - trailingPlaceable.height)
     )
-    val labelCenterPosition = Alignment.CenterStart.align(
-        IntSize(
-            width - labelPlaceable.width,
-            height - labelPlaceable.height
+    if (labelPlaceable != null) {
+        val labelCenterPosition = Alignment.CenterStart.align(
+            IntSize(
+                width - labelPlaceable.width,
+                height - labelPlaceable.height
+            )
         )
-    )
-    val labelDistance = labelCenterPosition.y - labelEndPosition
-    val labelPositionY =
-        labelCenterPosition.y - (labelDistance * animationProgress).roundToInt()
-    labelPlaceable.placeRelative(widthOrZero(leadingPlaceable), labelPositionY)
-
+        val labelDistance = labelCenterPosition.y - labelEndPosition
+        val labelPositionY =
+            labelCenterPosition.y - (labelDistance * animationProgress).roundToInt()
+        labelPlaceable.placeRelative(widthOrZero(leadingPlaceable), labelPositionY)
+    }
     textfieldPlaceable.placeRelative(widthOrZero(leadingPlaceable), textPosition)
     placeholderPlaceable?.placeRelative(widthOrZero(leadingPlaceable), textPosition)
 }
@@ -623,4 +621,4 @@ private fun Modifier.drawIndicatorLine(lineWidth: Dp, color: Color): Modifier {
 private val FirstBaselineOffset = 20.dp
 private val LastBaselineOffset = 10.dp
 private val TextFieldTopPadding = 4.dp
-private const val ContainerAlpha = 0.12f
+const val ContainerAlpha = 0.12f

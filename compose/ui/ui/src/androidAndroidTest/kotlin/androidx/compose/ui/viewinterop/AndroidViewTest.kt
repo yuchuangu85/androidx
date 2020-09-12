@@ -30,6 +30,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.Box
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.Providers
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,9 +39,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.onPositioned
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.DensityAmbient
 import androidx.compose.ui.platform.setContent
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.R
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -50,12 +53,10 @@ import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withClassName
 import androidx.test.filters.SdkSuppress
 import androidx.test.filters.SmallTest
-import androidx.ui.test.android.createAndroidComposeRule
+import androidx.ui.test.createAndroidComposeRule
 import androidx.ui.test.assertPixels
 import androidx.ui.test.captureToBitmap
 import androidx.ui.test.onNodeWithTag
-import androidx.ui.test.runOnIdle
-import androidx.ui.test.runOnUiThread
 import com.google.common.truth.Truth.assertThat
 import org.hamcrest.CoreMatchers.endsWith
 import org.hamcrest.CoreMatchers.equalTo
@@ -70,11 +71,11 @@ import kotlin.math.roundToInt
 @RunWith(JUnit4::class)
 class AndroidViewTest {
     @get:Rule
-    val composeTestRule = createAndroidComposeRule<ComponentActivity>()
+    val rule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
     fun androidViewWithConstructor() {
-        composeTestRule.setContent {
+        rule.setContent {
             AndroidView({ TextView(it).apply { text = "Test" } })
         }
         Espresso
@@ -84,7 +85,7 @@ class AndroidViewTest {
 
     @Test
     fun androidViewWithResourceTest() {
-        composeTestRule.setContent {
+        rule.setContent {
             AndroidView({ LayoutInflater.from(it).inflate(R.layout.test_layout, null) })
         }
         Espresso
@@ -95,12 +96,12 @@ class AndroidViewTest {
     @Test
     fun androidViewWithViewTest() {
         lateinit var frameLayout: FrameLayout
-        composeTestRule.activityRule.scenario.onActivity { activity ->
+        rule.activityRule.scenario.onActivity { activity ->
             frameLayout = FrameLayout(activity).apply {
                 layoutParams = ViewGroup.LayoutParams(300, 300)
             }
         }
-        composeTestRule.setContent {
+        rule.setContent {
             AndroidView({ frameLayout })
         }
         Espresso
@@ -110,7 +111,7 @@ class AndroidViewTest {
 
     @Test
     fun androidViewWithResourceTest_preservesLayoutParams() {
-        composeTestRule.setContent {
+        rule.setContent {
             AndroidView({
                 LayoutInflater.from(it).inflate(R.layout.test_layout, FrameLayout(it), false)
             })
@@ -131,24 +132,24 @@ class AndroidViewTest {
     @Test
     fun androidViewProperlyDetached() {
         lateinit var frameLayout: FrameLayout
-        composeTestRule.activityRule.scenario.onActivity { activity ->
+        rule.activityRule.scenario.onActivity { activity ->
             frameLayout = FrameLayout(activity).apply {
                 layoutParams = ViewGroup.LayoutParams(300, 300)
             }
         }
         var emit by mutableStateOf(true)
-        composeTestRule.setContent {
+        rule.setContent {
             if (emit) {
                 AndroidView({ frameLayout })
             }
         }
 
-        runOnUiThread {
+        rule.runOnUiThread {
             assertThat(frameLayout.parent).isNotNull()
             emit = false
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(frameLayout.parent).isNull()
         }
     }
@@ -158,7 +159,7 @@ class AndroidViewTest {
         lateinit var root: FrameLayout
         lateinit var composeView: ComposeView
         lateinit var viewInsideCompose: View
-        composeTestRule.activityRule.scenario.onActivity { activity ->
+        rule.activityRule.scenario.onActivity { activity ->
             root = FrameLayout(activity)
             composeView = ComposeView(activity)
             viewInsideCompose = View(activity)
@@ -171,19 +172,19 @@ class AndroidViewTest {
         }
 
         var viewInsideComposeHolder: ViewGroup? = null
-        runOnUiThread {
+        rule.runOnUiThread {
             assertThat(viewInsideCompose.parent).isNotNull()
             viewInsideComposeHolder = viewInsideCompose.parent as ViewGroup
             root.removeView(composeView)
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(viewInsideCompose.parent).isNull()
             assertThat(viewInsideComposeHolder?.childCount).isEqualTo(0)
             root.addView(composeView)
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(viewInsideCompose.parent).isEqualTo(viewInsideComposeHolder)
             assertThat(viewInsideComposeHolder?.childCount).isEqualTo(1)
         }
@@ -192,7 +193,7 @@ class AndroidViewTest {
     @Test
     fun androidViewWithResource_modifierIsApplied() {
         val size = 20.dp
-        composeTestRule.setContent {
+        rule.setContent {
             AndroidView(
                 { LayoutInflater.from(it).inflate(R.layout.test_layout, null) },
                 Modifier.size(size)
@@ -213,10 +214,10 @@ class AndroidViewTest {
     fun androidViewWithView_modifierIsApplied() {
         val size = 20.dp
         lateinit var frameLayout: FrameLayout
-        composeTestRule.activityRule.scenario.onActivity { activity ->
+        rule.activityRule.scenario.onActivity { activity ->
             frameLayout = FrameLayout(activity)
         }
-        composeTestRule.setContent {
+        rule.setContent {
             AndroidView({ frameLayout }, Modifier.size(size))
         }
 
@@ -236,16 +237,16 @@ class AndroidViewTest {
     fun androidViewWithView_drawModifierIsApplied() {
         val size = 300
         lateinit var frameLayout: FrameLayout
-        composeTestRule.activityRule.scenario.onActivity { activity ->
+        rule.activityRule.scenario.onActivity { activity ->
             frameLayout = FrameLayout(activity).apply {
                 layoutParams = ViewGroup.LayoutParams(size, size)
             }
         }
-        composeTestRule.setContent {
+        rule.setContent {
             AndroidView({ frameLayout }, Modifier.testTag("view").background(color = Color.Blue))
         }
 
-        onNodeWithTag("view").captureToBitmap().assertPixels(IntSize(size, size)) {
+        rule.onNodeWithTag("view").captureToBitmap().assertPixels(IntSize(size, size)) {
             Color.Blue
         }
     }
@@ -253,7 +254,7 @@ class AndroidViewTest {
     @Test
     fun androidViewWithResource_modifierIsCorrectlyChanged() {
         val size = mutableStateOf(20.dp)
-        composeTestRule.setContent {
+        rule.setContent {
             AndroidView(
                 { LayoutInflater.from(it).inflate(R.layout.test_layout, null) },
                 Modifier.size(size.value)
@@ -268,7 +269,7 @@ class AndroidViewTest {
                     throw exception
                 }
             }
-        runOnIdle { size.value = 30.dp }
+        rule.runOnIdle { size.value = 30.dp }
         Espresso
             .onView(instanceOf(RelativeLayout::class.java))
             .check(matches(isDisplayed()))
@@ -283,7 +284,7 @@ class AndroidViewTest {
     @Test
     fun androidView_notDetachedFromWindowTwice() {
         // Should not crash.
-        composeTestRule.setContent {
+        rule.setContent {
             Box {
                 AndroidView(::FrameLayout) {
                     it.setContent(Recomposer()) {
@@ -298,20 +299,35 @@ class AndroidViewTest {
     fun androidView_updateObservesStateChanges() {
         var size by mutableStateOf(20)
         var obtainedSize: IntSize = IntSize.Zero
-        composeTestRule.setContent {
+        rule.setContent {
             Box {
                 AndroidView(::View, Modifier.onPositioned { obtainedSize = it.size }) { view ->
                     view.layoutParams = ViewGroup.LayoutParams(size, size)
                 }
             }
         }
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(obtainedSize).isEqualTo(IntSize(size, size))
             size = 40
         }
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(obtainedSize).isEqualTo(IntSize(size, size))
         }
+    }
+
+    @Test
+    fun androidView_propagatesDensity() {
+        rule.setContent {
+            val size = 50.dp
+            val density = Density(3f)
+            val sizeIpx = with(density) { size.toIntPx() }
+            Providers(DensityAmbient provides density) {
+                AndroidView({ FrameLayout(it) }, Modifier.size(size).onPositioned {
+                    assertThat(it.size).isEqualTo(IntSize(sizeIpx, sizeIpx))
+                })
+            }
+        }
+        rule.waitForIdle()
     }
 
     private fun Dp.toPx(displayMetrics: DisplayMetrics) =

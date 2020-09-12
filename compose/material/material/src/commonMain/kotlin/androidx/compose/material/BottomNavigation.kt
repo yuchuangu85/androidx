@@ -23,6 +23,8 @@ import androidx.compose.animation.core.VectorizedAnimationSpec
 import androidx.compose.foundation.Box
 import androidx.compose.foundation.ContentColorAmbient
 import androidx.compose.foundation.ContentGravity
+import androidx.compose.foundation.Interaction
+import androidx.compose.foundation.InteractionState
 import androidx.compose.foundation.ProvideTextStyle
 import androidx.compose.foundation.contentColor
 import androidx.compose.foundation.layout.Arrangement
@@ -32,9 +34,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.preferredHeight
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.LastBaseline
+import androidx.compose.material.ripple.RippleIndication
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Providers
 import androidx.compose.runtime.emptyContent
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Layout
 import androidx.compose.ui.MeasureScope
 import androidx.compose.ui.Modifier
@@ -119,22 +123,28 @@ fun BottomNavigation(
  *
  * @param icon icon for this item, typically this will be a [androidx.compose.foundation.Icon]
  * @param selected whether this item is selected
- * @param onSelect the callback to be invoked when this item is selected
+ * @param onClick the callback to be invoked when this item is selected
  * @param modifier optional [Modifier] for this item
  * @param label optional text label for this item
  * @param alwaysShowLabels whether to always show labels for this item. If false, labels will
  * only be shown when this item is selected.
- * @param selectedContentColor the color of the text label and icon when this item is selected
+ * @param interactionState the [InteractionState] representing the different [Interaction]s
+ * present on this BottomNavigationItem. You can create and pass in your own remembered
+ * [InteractionState] if you want to read the [InteractionState] and customize the appearance /
+ * behavior of this BottomNavigationItem in different [Interaction]s.
+ * @param selectedContentColor the color of the text label and icon when this item is selected,
+ * and the color of the ripple.
  * @param unselectedContentColor the color of the text label and icon when this item is not selected
  */
 @Composable
 fun BottomNavigationItem(
     icon: @Composable () -> Unit,
     selected: Boolean,
-    onSelect: () -> Unit,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
     label: @Composable () -> Unit = emptyContent(),
     alwaysShowLabels: Boolean = true,
+    interactionState: InteractionState = remember { InteractionState() },
     selectedContentColor: Color = contentColor(),
     unselectedContentColor: Color = EmphasisAmbient.current.medium.applyEmphasis(
         selectedContentColor
@@ -144,10 +154,20 @@ fun BottomNavigationItem(
         val style = MaterialTheme.typography.caption.copy(textAlign = TextAlign.Center)
         ProvideTextStyle(style, children = label)
     }
+    // The color of the Ripple should always the selected color, as we want to show the color
+    // before the item is considered selected, and hence before the new contentColor is
+    // provided by BottomNavigationTransition.
+    val ripple = RippleIndication(bounded = false, color = selectedContentColor)
+
     // TODO This composable has magic behavior within a Row; reconsider this behavior later
     Box(with(RowScope) {
         modifier
-            .selectable(selected = selected, onClick = onSelect)
+            .selectable(
+                selected = selected,
+                onClick = onClick,
+                interactionState = interactionState,
+                indication = ripple
+            )
             .weight(1f)
     }, gravity = ContentGravity.Center) {
         BottomNavigationTransition(

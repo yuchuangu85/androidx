@@ -21,10 +21,10 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Rect
 import android.icu.util.Calendar
-import android.util.Log
 import android.view.SurfaceHolder
 import androidx.annotation.IntDef
-import androidx.wear.watchfacestyle.UserStyleManager
+import androidx.annotation.UiThread
+import androidx.wear.watchface.style.UserStyleRepository
 
 /** @hide */
 @IntDef(
@@ -46,42 +46,32 @@ annotation class CanvasType {
     }
 }
 
-/**
- * The base class for {@link Canvas} WatchFace rendering. This class's methods should be called on
- * the main thread only.
- */
+/** The base class for {@link Canvas} WatchFace rendering. */
 abstract class CanvasRenderer(
     /** The {@link SurfaceHolder} that {@link onDraw} will draw into. */
     surfaceHolder: SurfaceHolder,
 
-    /** The associated {@link UserStyleManager}. */
-    userStyleManager: UserStyleManager,
+    /** The associated {@link UserStyleRepository}. */
+    userStyleRepository: UserStyleRepository,
 
-    /** The associated {@link SystemState}. */
-    private val systemState: SystemState,
+    /** The associated {@link WatchState}. */
+    watchState: WatchState,
 
     /** The type of canvas to use. */
     @CanvasType private val canvasType: Int
-) : Renderer(surfaceHolder, userStyleManager) {
-    private companion object {
-        private const val TAG = "CanvasRenderer"
-    }
+) : Renderer(surfaceHolder, userStyleRepository, watchState) {
 
-    override fun onDrawInternal(
+    internal override fun renderInternal(
         calendar: Calendar
     ) {
-        val canvas = if (canvasType == CanvasType.HARDWARE) {
+        val canvas = (if (canvasType == CanvasType.HARDWARE) {
             surfaceHolder.lockHardwareCanvas()
         } else {
             surfaceHolder.lockCanvas()
-        }
-        if (canvas == null) {
-            Log.e(TAG, "Null canvas returned when locking the SurfaceHolder.")
-            return
-        }
+        }) ?: return
         try {
-            if (systemState.isVisible) {
-                onDraw(canvas, surfaceHolder.surfaceFrame, calendar)
+            if (watchState.isVisible) {
+                render(canvas, surfaceHolder.surfaceFrame, calendar)
             } else {
                 canvas.drawColor(Color.BLACK)
             }
@@ -90,7 +80,8 @@ abstract class CanvasRenderer(
         }
     }
 
-    override fun takeScreenshot(
+    /** {@inheritDoc} */
+    internal override fun takeScreenshot(
         calendar: Calendar,
         @DrawMode drawMode: Int
     ): Bitmap {
@@ -101,23 +92,23 @@ abstract class CanvasRenderer(
         )
         val prevDrawMode = drawMode
         this.drawMode = drawMode
-        onDraw(Canvas(bitmap), screenBounds, calendar)
+        render(Canvas(bitmap), screenBounds, calendar)
         this.drawMode = prevDrawMode
         return bitmap
     }
 
     /**
-     * Called on the main thread. Sub-classes should override this to implement their rendering
-     * logic which should respect the current {@link DrawMode}. For correct functioning watch
-     * faces must use the supplied {@link Calendar} and avoid using any other ways of getting the
-     * time.
+     * Sub-classes should override this to implement their rendering logic which should respect
+     * the current {@link DrawMode}. For correct functioning watch faces must use the supplied
+     * {@link Calendar} and avoid using any other ways of getting the time.
      *
      * @param canvas The {@link Canvas} to render into. Don't assume this is always the canvas from
      *     the {@link SurfaceHolder} backing the display
      * @param bounds A {@link Rect} describing the bonds of the canvas to draw into
      * @param calendar The current {@link Calendar}
      */
-    protected abstract fun onDraw(
+    @UiThread
+    abstract fun render(
         canvas: Canvas,
         bounds: Rect,
         calendar: Calendar

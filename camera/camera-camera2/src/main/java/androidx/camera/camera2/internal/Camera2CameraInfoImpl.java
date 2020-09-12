@@ -23,7 +23,12 @@ import android.view.Surface;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.experimental.UseExperimental;
+import androidx.camera.camera2.interop.Camera2CameraInfo;
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ExperimentalExposureCompensation;
+import androidx.camera.core.ExposureState;
 import androidx.camera.core.ZoomState;
 import androidx.camera.core.impl.CameraCaptureCallback;
 import androidx.camera.core.impl.CameraInfoInternal;
@@ -38,24 +43,29 @@ import java.util.concurrent.Executor;
  * Implementation of the {@link CameraInfoInternal} interface that exposes parameters through
  * camera2.
  */
+@UseExperimental(markerClass = ExperimentalCamera2Interop.class)
 public final class Camera2CameraInfoImpl implements CameraInfoInternal {
 
     private static final String TAG = "Camera2CameraInfo";
     private final String mCameraId;
     private final CameraCharacteristics mCameraCharacteristics;
-    private final Camera2CameraControl mCamera2CameraControl;
+    private final Camera2CameraControlImpl mCamera2CameraControlImpl;
     private final ZoomControl mZoomControl;
     private final TorchControl mTorchControl;
+    private final ExposureControl mExposureControl;
+    private final Camera2CameraInfo mCamera2CameraInfo;
 
     Camera2CameraInfoImpl(@NonNull String cameraId,
             @NonNull CameraCharacteristics cameraCharacteristics,
-            @NonNull Camera2CameraControl camera2CameraControl) {
+            @NonNull Camera2CameraControlImpl camera2CameraControlImpl) {
         Preconditions.checkNotNull(cameraCharacteristics, "Camera characteristics map is missing");
         mCameraId = Preconditions.checkNotNull(cameraId);
         mCameraCharacteristics = cameraCharacteristics;
-        mCamera2CameraControl = camera2CameraControl;
-        mZoomControl = camera2CameraControl.getZoomControl();
-        mTorchControl = camera2CameraControl.getTorchControl();
+        mCamera2CameraControlImpl = camera2CameraControlImpl;
+        mZoomControl = camera2CameraControlImpl.getZoomControl();
+        mTorchControl = camera2CameraControlImpl.getTorchControl();
+        mExposureControl = camera2CameraControlImpl.getExposureControl();
+        mCamera2CameraInfo = new Camera2CameraInfo(this);
         logDeviceInfo();
     }
 
@@ -173,6 +183,13 @@ public final class Camera2CameraInfoImpl implements CameraInfoInternal {
         return mZoomControl.getZoomState();
     }
 
+    @NonNull
+    @Override
+    @ExperimentalExposureCompensation
+    public ExposureState getExposureState() {
+        return mExposureControl.getExposureState();
+    }
+
     /**
      * {@inheritDoc}
      *
@@ -195,11 +212,19 @@ public final class Camera2CameraInfoImpl implements CameraInfoInternal {
     @Override
     public void addSessionCaptureCallback(@NonNull Executor executor,
             @NonNull CameraCaptureCallback callback) {
-        mCamera2CameraControl.addSessionCameraCaptureCallback(executor, callback);
+        mCamera2CameraControlImpl.addSessionCameraCaptureCallback(executor, callback);
     }
 
     @Override
     public void removeSessionCaptureCallback(@NonNull CameraCaptureCallback callback) {
-        mCamera2CameraControl.removeSessionCameraCaptureCallback(callback);
+        mCamera2CameraControlImpl.removeSessionCameraCaptureCallback(callback);
+    }
+
+    /**
+     * Gets the implementation of {@link Camera2CameraInfo}.
+     */
+    @NonNull
+    public Camera2CameraInfo getCamera2CameraInfo() {
+        return mCamera2CameraInfo;
     }
 }

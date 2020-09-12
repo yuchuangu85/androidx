@@ -16,18 +16,22 @@
 
 package androidx.work.integration.testapp
 
+import android.annotation.SuppressLint
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.LifecycleService
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkInfo
+import androidx.work.WorkQuery
 import androidx.work.await
 import androidx.work.multiprocess.RemoteWorkManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 class RemoteService : LifecycleService() {
 
@@ -66,6 +70,26 @@ class RemoteService : LifecycleService() {
                     enqueueWorkRequest()
                 }
             }
+            ACTION_ENQUEUE_CONTINUATION -> {
+                mScope.launch {
+                    enqueueContinuation()
+                }
+            }
+            ACTION_CANCEL_WORK_BY_TAG -> {
+                mScope.launch {
+                    cancelAllWorkByTag()
+                }
+            }
+            ACTION_CANCEL_ALL_WORK -> {
+                mScope.launch {
+                    cancelAllWork()
+                }
+            }
+            ACTION_QUERY_WORK_INFO -> {
+                mScope.launch {
+                    queryWorkInfo()
+                }
+            }
             else -> Log.d(TAG, "Unknown intent")
         }
     }
@@ -77,13 +101,80 @@ class RemoteService : LifecycleService() {
         remoteWorkManager.enqueue(listOf(request)).await()
     }
 
+    @SuppressLint("EnqueueWork")
+    private suspend fun enqueueContinuation() {
+        val request = OneTimeWorkRequestBuilder<TestWorker>()
+            .setInitialDelay(1, TimeUnit.MINUTES)
+            .addTag(WORK_TAG)
+            .build()
+
+        Log.d(TAG, "Enqueue-ing a Continuation")
+        RemoteWorkManager.getInstance(this)
+            .beginWith(request)
+            .enqueue()
+            .await()
+    }
+
+    private suspend fun cancelAllWorkByTag() {
+        Log.d(TAG, "Cancelling work by tag")
+        val remoteWorkManager = RemoteWorkManager.getInstance(this)
+        remoteWorkManager.cancelAllWorkByTag(WORK_TAG).await()
+    }
+
+    private suspend fun cancelAllWork() {
+        Log.d(TAG, "Cancelling all work")
+        val remoteWorkManager = RemoteWorkManager.getInstance(this)
+        remoteWorkManager.cancelAllWork().await()
+    }
+
+    private suspend fun queryWorkInfo() {
+        Log.d(TAG, "Querying work info")
+        val query = WorkQuery.Builder.fromStates(listOf(WorkInfo.State.ENQUEUED))
+            .build()
+
+        val remoteWorkManager = RemoteWorkManager.getInstance(this)
+        val workInfoList: List<WorkInfo> = remoteWorkManager.getWorkInfos(query).await()
+        workInfoList.forEach {
+            Log.d(TAG, "Found Worker with tags ${it.tags}")
+        }
+    }
+
     companion object {
         const val TAG: String = "WM-RemoteService"
+        const val WORK_TAG = "RemoteWorkTag"
         const val ACTION_ENQUEUE_WORK = "ACTION_ENQUEUE_WORK"
+        const val ACTION_ENQUEUE_CONTINUATION = "ACTION_ENQUEUE_CONTINUATION"
+        const val ACTION_CANCEL_WORK_BY_TAG = "ACTION_CANCEL_WORK_BY_TAG"
+        const val ACTION_CANCEL_ALL_WORK = "ACTION_CANCEL_ALL_WORK"
+        const val ACTION_QUERY_WORK_INFO = "ACTION_QUERY_WORK_INFO"
 
         fun enqueueIntent(context: Context): Intent {
             val intent = Intent(context.applicationContext, RemoteService::class.java)
             intent.action = ACTION_ENQUEUE_WORK
+            return intent
+        }
+
+        fun enqueueContinuationIntent(context: Context): Intent {
+            val intent = Intent(context.applicationContext, RemoteService::class.java)
+            intent.action = ACTION_ENQUEUE_CONTINUATION
+            return intent
+        }
+
+        fun cancelWorkByTagIntent(context: Context): Intent {
+            val intent = Intent(context.applicationContext, RemoteService::class.java)
+            intent.action = ACTION_CANCEL_WORK_BY_TAG
+            return intent
+        }
+
+        fun cancelAllWorkIntent(context: Context): Intent {
+            val intent = Intent(context.applicationContext, RemoteService::class.java)
+            intent.action = ACTION_CANCEL_ALL_WORK
+            return intent
+        }
+
+        fun queryWorkInfoIntent(context: Context): Intent {
+            val intent = Intent(context.applicationContext, RemoteService::class.java)
+            intent.action = ACTION_QUERY_WORK_INFO
             return intent
         }
     }

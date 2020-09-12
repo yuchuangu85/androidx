@@ -25,7 +25,6 @@ import androidx.test.screenshot.assertAgainstGolden
 import androidx.ui.test.captureToBitmap
 import androidx.ui.test.createComposeRule
 import androidx.ui.test.isDialog
-import androidx.ui.test.onNode
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -37,14 +36,14 @@ import org.junit.runners.JUnit4
 class AlertDialogScreenshotTest {
 
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val rule = createComposeRule()
 
     @get:Rule
     val screenshotRule = AndroidXScreenshotTestRule(GOLDEN_MATERIAL)
 
     @Test
     fun sideBySideButtons() {
-        composeTestRule.setContent {
+        rule.setContent {
             AlertDialog(
                 onDismissRequest = {},
                 title = { Text("Title") },
@@ -62,14 +61,14 @@ class AlertDialogScreenshotTest {
             )
         }
 
-        onNode(isDialog())
+        rule.onNode(isDialog())
             .captureToBitmap()
             .assertAgainstGolden(screenshotRule, "dialog_sideBySideButtons")
     }
 
     @Test
     fun stackedButtons() {
-        composeTestRule.setContent {
+        rule.setContent {
             AlertDialog(
                 onDismissRequest = {},
                 title = { Text("Title") },
@@ -87,7 +86,7 @@ class AlertDialogScreenshotTest {
             )
         }
 
-        onNode(isDialog())
+        rule.onNode(isDialog())
             .captureToBitmap()
             .assertAgainstGolden(screenshotRule, "dialog_stackedButtons")
     }

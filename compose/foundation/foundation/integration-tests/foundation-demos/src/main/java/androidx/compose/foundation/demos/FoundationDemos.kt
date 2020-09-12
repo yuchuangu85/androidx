@@ -17,10 +17,11 @@
 package androidx.compose.foundation.demos
 
 import androidx.compose.foundation.samples.ControlledScrollableRowSample
-import androidx.compose.foundation.samples.InteractionStateSample
+import androidx.compose.foundation.samples.MultipleInteractionStateSample
+import androidx.compose.foundation.samples.PriorityInteractionStateSample
 import androidx.compose.foundation.samples.ScrollableColumnSample
-import androidx.ui.demos.common.ComposableDemo
-import androidx.ui.demos.common.DemoCategory
+import androidx.compose.integration.demos.common.ComposableDemo
+import androidx.compose.integration.demos.common.DemoCategory
 
 val FoundationDemos = DemoCategory("Foundation", listOf(
     ComposableDemo("Draggable, Scrollable, Zoomable") { HighLevelGesturesDemo() },
@@ -29,5 +30,6 @@ val FoundationDemos = DemoCategory("Foundation", listOf(
     ComposableDemo("Draw Modifiers") { DrawModifiersDemo() },
     ComposableDemo("Boxes") { BoxDemo() },
     DemoCategory("Lazy lists", LazyListDemos),
-    ComposableDemo("InteractionState") { InteractionStateSample() }
+    ComposableDemo("Priority InteractionState") { PriorityInteractionStateSample() },
+    ComposableDemo("Multiple-interaction InteractionState") { MultipleInteractionStateSample() }
 ))

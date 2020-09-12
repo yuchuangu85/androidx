@@ -17,6 +17,10 @@ BuilderSetStyle: androidx.compose.ui.graphics.vector.VectorAssetBuilder#pushGrou
     Builder methods names should use setFoo() / addFoo() / clearFoo() style: method androidx.compose.ui.graphics.vector.VectorAssetBuilder.pushGroup(String,float,float,float,float,float,float,float,java.util.List<? extends androidx.compose.ui.graphics.vector.PathNode>)
 
 
+CallbackMethodName: androidx.compose.ui.gesture.ScrollCallback#onStart-k-4lQ0M(long):
+    Callback method names must follow the on<Something> style: onStart-k-4lQ0M
+
+
 CallbackName: androidx.compose.ui.gesture.DragObserver:
     Class should be named DragCallback
 CallbackName: androidx.compose.ui.gesture.LongPressDragObserver:
@@ -25,6 +29,22 @@ CallbackName: androidx.compose.ui.gesture.RawScaleObserver:
     Class should be named RawScaleCallback
 CallbackName: androidx.compose.ui.gesture.ScaleObserver:
     Class should be named ScaleCallback
+
+
+ExecutorRegistration: androidx.compose.ui.gesture.ScrollGestureFilterKt#scrollGestureFilter(androidx.compose.ui.Modifier, androidx.compose.ui.gesture.ScrollCallback, androidx.compose.ui.gesture.scrollorientationlocking.Orientation, kotlin.jvm.functions.Function1<? super androidx.compose.ui.gesture.Direction,java.lang.Boolean>, boolean):
+    Registration methods should have overload that accepts delivery Executor: `scrollGestureFilter`
+
+
+GetterOnBuilder: androidx.compose.ui.graphics.vector.VectorAssetBuilder#getDefaultHeight():
+    Getter should be on the built object, not the builder: method androidx.compose.ui.graphics.vector.VectorAssetBuilder.getDefaultHeight()
+GetterOnBuilder: androidx.compose.ui.graphics.vector.VectorAssetBuilder#getDefaultWidth():
+    Getter should be on the built object, not the builder: method androidx.compose.ui.graphics.vector.VectorAssetBuilder.getDefaultWidth()
+GetterOnBuilder: androidx.compose.ui.graphics.vector.VectorAssetBuilder#getName():
+    Getter should be on the built object, not the builder: method androidx.compose.ui.graphics.vector.VectorAssetBuilder.getName()
+GetterOnBuilder: androidx.compose.ui.graphics.vector.VectorAssetBuilder#getViewportHeight():
+    Getter should be on the built object, not the builder: method androidx.compose.ui.graphics.vector.VectorAssetBuilder.getViewportHeight()
+GetterOnBuilder: androidx.compose.ui.graphics.vector.VectorAssetBuilder#getViewportWidth():
+    Getter should be on the built object, not the builder: method androidx.compose.ui.graphics.vector.VectorAssetBuilder.getViewportWidth()
 
 
 ListenerLast: androidx.compose.ui.gesture.ScrollGestureFilterKt#scrollGestureFilter(androidx.compose.ui.Modifier, androidx.compose.ui.gesture.ScrollCallback, androidx.compose.ui.gesture.scrollorientationlocking.Orientation, kotlin.jvm.functions.Function1<? super androidx.compose.ui.gesture.Direction,java.lang.Boolean>, boolean) parameter #2:

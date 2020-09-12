@@ -21,13 +21,12 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.Rect
 import android.graphics.RectF
 import android.icu.util.Calendar
 import android.os.Bundle
 import android.os.Handler
+import android.os.Looper
 import android.support.wearable.complications.ComplicationData
 import android.support.wearable.watchface.Constants
 import android.support.wearable.watchface.IWatchFaceService
@@ -38,9 +37,10 @@ import android.view.ViewConfiguration
 import androidx.test.core.app.ApplicationProvider
 import androidx.wear.complications.SystemProviders
 import androidx.wear.complications.rendering.ComplicationDrawable
-import androidx.wear.watchfacestyle.ListViewUserStyleCategory
-import androidx.wear.watchfacestyle.UserStyleCategory
-import androidx.wear.watchfacestyle.UserStyleManager
+import androidx.wear.watchface.style.ListUserStyleCategory
+import androidx.wear.watchface.style.UserStyleCategory
+import androidx.wear.watchface.style.UserStyleRepository
+import androidx.wear.watchface.ui.WatchFaceConfigActivity
 import com.google.common.truth.Truth.assertThat
 import org.junit.After
 import org.junit.Before
@@ -73,7 +73,7 @@ class WatchFaceServiceTest {
     private val handler = mock(Handler::class.java)
     private val iWatchFaceService = mock(IWatchFaceService::class.java)
     private val surfaceHolder = mock(SurfaceHolder::class.java)
-    private val systemState = SystemState()
+    private val systemState = WatchState()
 
     init {
         `when`(surfaceHolder.surfaceFrame).thenReturn(ONE_HUNDRED_BY_ONE_HUNDRED_RECT)
@@ -88,17 +88,17 @@ class WatchFaceServiceTest {
     private val complicationDrawableRight = ComplicationDrawable(context)
 
     private val redStyleOption =
-        ListViewUserStyleCategory.ListViewOption("red_style", "Red", icon = null)
+        ListUserStyleCategory.ListOption("red_style", "Red", icon = null)
 
     private val greenStyleOption =
-        ListViewUserStyleCategory.ListViewOption("green_style", "Green", icon = null)
+        ListUserStyleCategory.ListOption("green_style", "Green", icon = null)
 
     private val blueStyleOption =
-        ListViewUserStyleCategory.ListViewOption("bluestyle", "Blue", icon = null)
+        ListUserStyleCategory.ListOption("bluestyle", "Blue", icon = null)
 
     private val colorStyleList = listOf(redStyleOption, greenStyleOption, blueStyleOption)
 
-    private val colorStyleCategory = ListViewUserStyleCategory(
+    private val colorStyleCategory = ListUserStyleCategory(
         "color_style_category",
         "Colors",
         "Watchface colorization", /* icon = */
@@ -107,18 +107,18 @@ class WatchFaceServiceTest {
     )
 
     private val classicStyleOption =
-        ListViewUserStyleCategory.ListViewOption("classic_style", "Classic", icon = null)
+        ListUserStyleCategory.ListOption("classic_style", "Classic", icon = null)
 
     private val modernStyleOption =
-        ListViewUserStyleCategory.ListViewOption("modern_style", "Modern", icon = null)
+        ListUserStyleCategory.ListOption("modern_style", "Modern", icon = null)
 
     private val gothicStyleOption =
-        ListViewUserStyleCategory.ListViewOption("gothic_style", "Gothic", icon = null)
+        ListUserStyleCategory.ListOption("gothic_style", "Gothic", icon = null)
 
     private val watchHandStyleList =
         listOf(classicStyleOption, modernStyleOption, gothicStyleOption)
 
-    private val watchHandStyleCategory = ListViewUserStyleCategory(
+    private val watchHandStyleCategory = ListUserStyleCategory(
         "hand_style_category",
         "Hand Style",
         "Hand visual look", /* icon = */
@@ -127,13 +127,14 @@ class WatchFaceServiceTest {
     )
 
     private val badStyleOption =
-        ListViewUserStyleCategory.ListViewOption("bad_option", "Bad", icon = null)
+        ListUserStyleCategory.ListOption("bad_option", "Bad", icon = null)
 
     private val leftComplication =
-        Complication(
+        Complication.Builder(
             LEFT_COMPLICATION_ID,
-            FixedBounds(RectF(0.2f, 0.4f, 0.4f, 0.6f)),
-            ComplicationDrawableRenderer(complicationDrawableLeft, systemState),
+            ComplicationDrawableRenderer(complicationDrawableLeft, systemState).apply {
+                setData(createComplicationData())
+            },
             intArrayOf(
                 ComplicationData.TYPE_RANGED_VALUE,
                 ComplicationData.TYPE_LONG_TEXT,
@@ -141,15 +142,17 @@ class WatchFaceServiceTest {
                 ComplicationData.TYPE_ICON,
                 ComplicationData.TYPE_SMALL_IMAGE
             ),
-            Complication.DefaultComplicationProvider(SystemProviders.SUNRISE_SUNSET),
-            ComplicationData.TYPE_SHORT_TEXT
-        ).apply { complicationData = createComplicationData() }
+            Complication.DefaultComplicationProvider(SystemProviders.SUNRISE_SUNSET)
+        ).setDefaultProviderType(ComplicationData.TYPE_SHORT_TEXT)
+            .setUnitSquareBounds(RectF(0.2f, 0.4f, 0.4f, 0.6f))
+            .build()
 
     private val rightComplication =
-        Complication(
+        Complication.Builder(
             RIGHT_COMPLICATION_ID,
-            FixedBounds(RectF(0.6f, 0.4f, 0.8f, 0.6f)),
-            ComplicationDrawableRenderer(complicationDrawableRight, systemState),
+            ComplicationDrawableRenderer(complicationDrawableRight, systemState).apply {
+                setData(createComplicationData())
+            },
             intArrayOf(
                 ComplicationData.TYPE_RANGED_VALUE,
                 ComplicationData.TYPE_LONG_TEXT,
@@ -157,26 +160,30 @@ class WatchFaceServiceTest {
                 ComplicationData.TYPE_ICON,
                 ComplicationData.TYPE_SMALL_IMAGE
             ),
-            Complication.DefaultComplicationProvider(SystemProviders.DAY_OF_WEEK),
-            ComplicationData.TYPE_SHORT_TEXT
-        ).apply { complicationData = createComplicationData() }
+            Complication.DefaultComplicationProvider(SystemProviders.DAY_OF_WEEK)
+        ).setDefaultProviderType(ComplicationData.TYPE_SHORT_TEXT)
+            .setUnitSquareBounds(RectF(0.6f, 0.4f, 0.8f, 0.6f))
+            .build()
 
     private val backgroundComplication =
-        Complication(
+        Complication.Builder(
             BACKGROUND_COMPLICATION_ID,
-            BackgroundComplicationBounds(),
-            ComplicationDrawableRenderer(complicationDrawableRight, systemState),
+            ComplicationDrawableRenderer(complicationDrawableRight, systemState).apply {
+                setData(createComplicationData())
+            },
             intArrayOf(
                 ComplicationData.TYPE_LARGE_IMAGE
             ),
-            Complication.DefaultComplicationProvider(),
-            ComplicationData.TYPE_LARGE_IMAGE
-        ).apply { complicationData = createComplicationData() }
+            Complication.DefaultComplicationProvider()
+        ).setDefaultProviderType(ComplicationData.TYPE_LARGE_IMAGE)
+            .setBackgroundComplication()
+            .build()
 
     private lateinit var renderer: TestRenderer
-    private lateinit var complicationSlots: ComplicationSlots
-    private lateinit var userStyleManager: UserStyleManager
-    private lateinit var watchFace: TestWatchFace
+    private lateinit var complicationsHolder: ComplicationsHolder
+    private lateinit var userStyleRepository: UserStyleRepository
+    private lateinit var watchFace: WatchFace
+    private lateinit var testWatchFaceService: TestWatchFaceService
     private lateinit var engineWrapper: WatchFaceService.EngineWrapper
 
     private class Task(val runTimeMillis: Long, val runnable: Runnable) : Comparable<Task> {
@@ -201,24 +208,25 @@ class WatchFaceServiceTest {
         userStyleCategories: List<UserStyleCategory>,
         apiVersion: Int = 2
     ) {
-        complicationSlots = ComplicationSlots(complications)
-        userStyleManager = UserStyleManager(userStyleCategories)
-        renderer = TestRenderer(surfaceHolder, userStyleManager, systemState)
-        val service = TestWatchFaceService(
+        this.complicationsHolder = ComplicationsHolder(complications)
+        userStyleRepository =
+            UserStyleRepository(userStyleCategories)
+        renderer = TestRenderer(surfaceHolder, userStyleRepository, systemState)
+        testWatchFaceService = TestWatchFaceService(
             watchFaceType,
-            complicationSlots,
+            this.complicationsHolder,
             renderer,
-            userStyleManager,
+            userStyleRepository,
             systemState,
             handler,
             INTERACTIVE_UPDATE_RATE_MS
         )
-        engineWrapper = service.onCreateEngine() as WatchFaceService.EngineWrapper
+        engineWrapper = testWatchFaceService.onCreateEngine() as WatchFaceService.EngineWrapper
         engineWrapper.onCreate(surfaceHolder)
         // Trigger watch face creation.
         engineWrapper.onSurfaceChanged(surfaceHolder, 0, 100, 100)
         sendBinder(engineWrapper, apiVersion)
-        watchFace = service.watchFace
+        watchFace = testWatchFaceService.watchFace
     }
 
     private fun sendBinder(engine: WatchFaceService.EngineWrapper, apiVersion: Int) {
@@ -244,6 +252,8 @@ class WatchFaceServiceTest {
 
     @Before
     fun setUp() {
+        `when`(handler.getLooper()).thenReturn(Looper.myLooper())
+
         // Capture tasks posted to mHandler and insert in mPendingTasks which is under our control.
         doAnswer {
             pendingTasks.add(Task(looperTimeMillis, it.arguments[0] as Runnable))
@@ -275,25 +285,6 @@ class WatchFaceServiceTest {
     @After
     fun validate() {
         validateMockitoUsage()
-    }
-
-    @Test
-    fun paintModesCreate_producesCorrectPaintObjects() {
-        val paintModes = PaintModes.create(Paint().apply { style = Paint.Style.FILL }) {
-            color = if (it == DrawMode.INTERACTIVE) {
-                Color.GRAY
-            } else {
-                Color.DKGRAY
-            }
-        }
-
-        for (drawMode in DrawMode.values()) {
-            assertThat(paintModes[drawMode].style).isEqualTo(Paint.Style.FILL)
-            assertThat(paintModes[drawMode].color).isEqualTo(
-                if (drawMode == DrawMode.INTERACTIVE) Color.GRAY else Color.DKGRAY
-            )
-            assertThat(paintModes[drawMode].isAntiAlias).isEqualTo(drawMode != DrawMode.AMBIENT)
-        }
     }
 
     @Test
@@ -338,23 +329,30 @@ class WatchFaceServiceTest {
     fun drawComplicationSelect_setsCorrectDrawMode() {
         initEngine(WatchFaceType.ANALOG, listOf(leftComplication, rightComplication), emptyList())
 
-        renderer.drawComplicationSelect(
+        val iWatchFaceConfig = WatchFaceConfigActivity.getIWatchFaceConfig(
+            ComponentName(
+                testWatchFaceService.packageName,
+                testWatchFaceService.javaClass.typeName
+            )
+        )!!
+
+        iWatchFaceConfig.drawComplicationSelect(
             Canvas(),
             ONE_HUNDRED_BY_ONE_HUNDRED_RECT,
             Calendar.getInstance().apply {
                 timeInMillis = 1000L
             }
         )
-        assertThat(renderer.drawMode).isEqualTo(
-            DrawMode.COMPLICATION_SELECT
-        )
+
+        assertThat(renderer.lastDrawMode).isEqualTo(DrawMode.COMPLICATION_SELECT)
+        assertThat(renderer.drawMode).isEqualTo(DrawMode.INTERACTIVE)
     }
 
     @Test
     fun onDraw_calendar_setFromSystemTime() {
         initEngine(WatchFaceType.ANALOG, listOf(leftComplication, rightComplication), emptyList())
 
-        watchFace.mockSystemTimeMillis = 1000L
+        testWatchFaceService.mockSystemTimeMillis = 1000L
         watchFace.onDraw()
         assertThat(watchFace.calendar.timeInMillis).isEqualTo(1000L)
     }
@@ -362,7 +360,7 @@ class WatchFaceServiceTest {
     @Test
     fun onDraw_calendar_affectedCorrectly_with2xMockTime() {
         initEngine(WatchFaceType.ANALOG, listOf(leftComplication, rightComplication), emptyList())
-        watchFace.mockSystemTimeMillis = 1000L
+        testWatchFaceService.mockSystemTimeMillis = 1000L
 
         watchFace.mockTimeReceiver.onReceive(
             context,
@@ -377,7 +375,7 @@ class WatchFaceServiceTest {
         assertThat(watchFace.calendar.timeInMillis).isEqualTo(1000L)
 
         // However 1000ms of real time should result in 2000ms observed by onDraw.
-        watchFace.mockSystemTimeMillis = 2000L
+        testWatchFaceService.mockSystemTimeMillis = 2000L
         watchFace.onDraw()
         assertThat(watchFace.calendar.timeInMillis).isEqualTo(3000L)
     }
@@ -385,7 +383,7 @@ class WatchFaceServiceTest {
     @Test
     fun onDraw_calendar_affectedCorrectly_withMockTimeWrapping() {
         initEngine(WatchFaceType.ANALOG, listOf(leftComplication, rightComplication), emptyList())
-        watchFace.mockSystemTimeMillis = 1000L
+        testWatchFaceService.mockSystemTimeMillis = 1000L
 
         watchFace.mockTimeReceiver.onReceive(
             context,
@@ -400,27 +398,27 @@ class WatchFaceServiceTest {
         watchFace.onDraw()
         assertThat(watchFace.calendar.timeInMillis).isEqualTo(1000L)
 
-        watchFace.mockSystemTimeMillis = 1250L
+        testWatchFaceService.mockSystemTimeMillis = 1250L
         watchFace.onDraw()
         assertThat(watchFace.calendar.timeInMillis).isEqualTo(1500L)
 
-        watchFace.mockSystemTimeMillis = 1499L
+        testWatchFaceService.mockSystemTimeMillis = 1499L
         watchFace.onDraw()
         assertThat(watchFace.calendar.timeInMillis).isEqualTo(1998L)
 
-        watchFace.mockSystemTimeMillis = 1500L
+        testWatchFaceService.mockSystemTimeMillis = 1500L
         watchFace.onDraw()
         assertThat(watchFace.calendar.timeInMillis).isEqualTo(1000L)
 
-        watchFace.mockSystemTimeMillis = 1750L
+        testWatchFaceService.mockSystemTimeMillis = 1750L
         watchFace.onDraw()
         assertThat(watchFace.calendar.timeInMillis).isEqualTo(1500L)
 
-        watchFace.mockSystemTimeMillis = 1999L
+        testWatchFaceService.mockSystemTimeMillis = 1999L
         watchFace.onDraw()
         assertThat(watchFace.calendar.timeInMillis).isEqualTo(1998L)
 
-        watchFace.mockSystemTimeMillis = 2000L
+        testWatchFaceService.mockSystemTimeMillis = 2000L
         watchFace.onDraw()
         assertThat(watchFace.calendar.timeInMillis).isEqualTo(1000L)
     }
@@ -461,26 +459,26 @@ class WatchFaceServiceTest {
         tapAt(30, 50)
         assertThat(complicationDrawableLeft.highlighted).isTrue()
         runPostedTasksFor(ViewConfiguration.getDoubleTapTimeout().toLong())
-        assertThat(watchFace.complicationSingleTapped).isEqualTo(LEFT_COMPLICATION_ID)
+        assertThat(testWatchFaceService.complicationSingleTapped).isEqualTo(LEFT_COMPLICATION_ID)
 
         runPostedTasksFor(WatchFace.CANCEL_COMPLICATION_HIGHLIGHTED_DELAY_MS)
         assertThat(complicationDrawableLeft.highlighted).isFalse()
 
         // Tap right complication.
-        watchFace.reset()
+        testWatchFaceService.reset()
         tapAt(70, 50)
         assertThat(complicationDrawableRight.highlighted).isTrue()
         runPostedTasksFor(ViewConfiguration.getDoubleTapTimeout().toLong())
-        assertThat(watchFace.complicationSingleTapped).isEqualTo(RIGHT_COMPLICATION_ID)
+        assertThat(testWatchFaceService.complicationSingleTapped).isEqualTo(RIGHT_COMPLICATION_ID)
 
         runPostedTasksFor(WatchFace.CANCEL_COMPLICATION_HIGHLIGHTED_DELAY_MS)
         assertThat(complicationDrawableLeft.highlighted).isFalse()
 
         // Tap on blank space.
-        watchFace.reset()
+        testWatchFaceService.reset()
         tapAt(1, 1)
         runPostedTasksFor(ViewConfiguration.getDoubleTapTimeout().toLong())
-        assertThat(watchFace.complicationSingleTapped).isNull()
+        assertThat(testWatchFaceService.complicationSingleTapped).isNull()
 
         runPostedTasksFor(WatchFace.CANCEL_COMPLICATION_HIGHLIGHTED_DELAY_MS)
         assertThat(complicationDrawableLeft.highlighted).isFalse()
@@ -495,25 +493,25 @@ class WatchFaceServiceTest {
 
         // Tap left complication.
         doubleTapAt(30, 50, ViewConfiguration.getDoubleTapTimeout().toLong() / 2)
-        assertThat(watchFace.complicationDoubleTapped).isEqualTo(LEFT_COMPLICATION_ID)
+        assertThat(testWatchFaceService.complicationDoubleTapped).isEqualTo(LEFT_COMPLICATION_ID)
         assertThat(complicationDrawableLeft.highlighted).isTrue()
 
         runPostedTasksFor(WatchFace.CANCEL_COMPLICATION_HIGHLIGHTED_DELAY_MS)
         assertThat(complicationDrawableLeft.highlighted).isFalse()
 
         // Tap right complication.
-        watchFace.reset()
+        testWatchFaceService.reset()
         doubleTapAt(70, 50, ViewConfiguration.getDoubleTapTimeout().toLong() / 2)
-        assertThat(watchFace.complicationDoubleTapped).isEqualTo(RIGHT_COMPLICATION_ID)
+        assertThat(testWatchFaceService.complicationDoubleTapped).isEqualTo(RIGHT_COMPLICATION_ID)
         assertThat(complicationDrawableRight.highlighted).isTrue()
 
         runPostedTasksFor(WatchFace.CANCEL_COMPLICATION_HIGHLIGHTED_DELAY_MS)
         assertThat(complicationDrawableRight.highlighted).isFalse()
 
         // Tap on blank space.
-        watchFace.reset()
+        testWatchFaceService.reset()
         doubleTapAt(1, 1, ViewConfiguration.getDoubleTapTimeout().toLong() / 2)
-        assertThat(watchFace.complicationDoubleTapped).isNull()
+        assertThat(testWatchFaceService.complicationDoubleTapped).isNull()
 
         runPostedTasksFor(WatchFace.CANCEL_COMPLICATION_HIGHLIGHTED_DELAY_MS)
         assertThat(complicationDrawableLeft.highlighted).isFalse()
@@ -535,8 +533,8 @@ class WatchFaceServiceTest {
         // nor onComplicationDoubleTapped fire.
         assertThat(complicationDrawableLeft.highlighted).isTrue()
         assertThat(complicationDrawableRight.highlighted).isTrue()
-        assertThat(watchFace.complicationSingleTapped).isNull()
-        assertThat(watchFace.complicationDoubleTapped).isNull()
+        assertThat(testWatchFaceService.complicationSingleTapped).isNull()
+        assertThat(testWatchFaceService.complicationDoubleTapped).isNull()
 
         runPostedTasksFor(WatchFace.CANCEL_COMPLICATION_HIGHLIGHTED_DELAY_MS)
         assertThat(complicationDrawableLeft.highlighted).isFalse()
@@ -553,8 +551,8 @@ class WatchFaceServiceTest {
         // Slowly tap left complication twice.
         doubleTapAt(30, 50, ViewConfiguration.getDoubleTapTimeout().toLong() * 2)
 
-        assertThat(watchFace.complicationSingleTapped).isEqualTo(LEFT_COMPLICATION_ID)
-        assertThat(watchFace.complicationDoubleTapped).isNull()
+        assertThat(testWatchFaceService.complicationSingleTapped).isEqualTo(LEFT_COMPLICATION_ID)
+        assertThat(testWatchFaceService.complicationDoubleTapped).isNull()
     }
 
     @Test
@@ -567,26 +565,26 @@ class WatchFaceServiceTest {
         // Quickly tap left complication thrice.
         tripleTapAt(30, 50, ViewConfiguration.getDoubleTapTimeout().toLong() / 2)
 
-        assertThat(watchFace.complicationSingleTapped).isNull()
-        assertThat(watchFace.complicationDoubleTapped).isEqualTo(LEFT_COMPLICATION_ID)
+        assertThat(testWatchFaceService.complicationSingleTapped).isNull()
+        assertThat(testWatchFaceService.complicationDoubleTapped).isEqualTo(LEFT_COMPLICATION_ID)
     }
 
     @Test
     fun tapCancel_after_tapDown_at_same_location_HandledAsSingleTap() {
         initEngine(WatchFaceType.ANALOG, listOf(leftComplication, rightComplication), emptyList())
 
-        watchFace.reset()
+        testWatchFaceService.reset()
         // Tap/Cancel left complication
         tapCancelAt(30, 50)
         runPostedTasksFor(ViewConfiguration.getDoubleTapTimeout().toLong())
-        assertThat(watchFace.complicationSingleTapped).isEqualTo(LEFT_COMPLICATION_ID)
+        assertThat(testWatchFaceService.complicationSingleTapped).isEqualTo(LEFT_COMPLICATION_ID)
     }
 
     @Test
     fun tapDown_then_tapDown_tapCancel_HandledAsSingleTap() {
         initEngine(WatchFaceType.ANALOG, listOf(leftComplication, rightComplication), emptyList())
 
-        watchFace.reset()
+        testWatchFaceService.reset()
         // Tap down left Complication
         watchFace.onTapCommand(TapType.TOUCH, 30, 50)
 
@@ -596,22 +594,22 @@ class WatchFaceServiceTest {
         // Now Tap cancel at the second position
         watchFace.onTapCommand(TapType.TOUCH_CANCEL, 70, 50)
         runPostedTasksFor(ViewConfiguration.getDoubleTapTimeout().toLong())
-        assertThat(watchFace.complicationSingleTapped).isEqualTo(RIGHT_COMPLICATION_ID)
+        assertThat(testWatchFaceService.complicationSingleTapped).isEqualTo(RIGHT_COMPLICATION_ID)
     }
 
     @Test
     fun tapDown_tapCancel_different_positions_CancelsTap() {
         initEngine(WatchFaceType.ANALOG, listOf(leftComplication, rightComplication), emptyList())
 
-        watchFace.reset()
+        testWatchFaceService.reset()
         // Tap down at a position in left Complication
         watchFace.onTapCommand(TapType.TOUCH, 30, 50)
         // Tap cancel at different position stillin left Complication
         watchFace.onTapCommand(TapType.TOUCH_CANCEL, 32, 50)
 
         runPostedTasksFor(ViewConfiguration.getDoubleTapTimeout().toLong())
-        assertThat(watchFace.complicationSingleTapped).isNull()
-        assertThat(watchFace.complicationDoubleTapped).isNull()
+        assertThat(testWatchFaceService.complicationSingleTapped).isNull()
+        assertThat(testWatchFaceService.complicationDoubleTapped).isNull()
     }
 
     @Test
@@ -622,7 +620,7 @@ class WatchFaceServiceTest {
         tripleTapAt(70, 50, ViewConfiguration.getDoubleTapTimeout().toLong() / 2)
 
         // Wait a bit for the condition to reset and clear our detection state.
-        watchFace.clearTappedState()
+        testWatchFaceService.clearTappedState()
         runPostedTasksFor(WatchFace.CANCEL_COMPLICATION_HIGHLIGHTED_DELAY_MS)
         assertThat(complicationDrawableLeft.highlighted).isFalse()
         assertThat(complicationDrawableRight.highlighted).isFalse()
@@ -631,8 +629,8 @@ class WatchFaceServiceTest {
         tapAt(70, 50)
         assertThat(complicationDrawableRight.highlighted).isTrue()
         runPostedTasksFor(ViewConfiguration.getDoubleTapTimeout().toLong())
-        assertThat(watchFace.complicationSingleTapped).isEqualTo(RIGHT_COMPLICATION_ID)
-        assertThat(watchFace.complicationDoubleTapped).isNull()
+        assertThat(testWatchFaceService.complicationSingleTapped).isEqualTo(RIGHT_COMPLICATION_ID)
+        assertThat(testWatchFaceService.complicationDoubleTapped).isNull()
     }
 
     @Test
@@ -680,8 +678,7 @@ class WatchFaceServiceTest {
                 beginFrameTimeMillis = 0,
                 currentTimeMillis = INTERACTIVE_UPDATE_RATE_MS
             )
-        )
-            .isEqualTo(INTERACTIVE_UPDATE_RATE_MS)
+        ).isEqualTo(INTERACTIVE_UPDATE_RATE_MS)
     }
 
     @Test
@@ -696,42 +693,49 @@ class WatchFaceServiceTest {
                 beginFrameTimeMillis = 2,
                 currentTimeMillis = INTERACTIVE_UPDATE_RATE_MS + 3
             )
-        )
-            .isEqualTo(INTERACTIVE_UPDATE_RATE_MS - 1)
+        ).isEqualTo(INTERACTIVE_UPDATE_RATE_MS - 1)
+    }
+
+    @Test
+    fun computeDelayTillNextFrame_beginFrameTimeInTheFuture() {
+        initEngine(WatchFaceType.ANALOG, listOf(leftComplication, rightComplication), emptyList())
+
+        assertThat(
+            watchFace.computeDelayTillNextFrame(
+                beginFrameTimeMillis = 100,
+                currentTimeMillis = 10
+            )
+        ).isEqualTo(INTERACTIVE_UPDATE_RATE_MS)
     }
 
     @Test
     fun getComplicationIdAt_returnsCorrectComplications() {
         initEngine(WatchFaceType.ANALOG, listOf(leftComplication, rightComplication), emptyList())
 
-        assertThat(complicationSlots.getComplicationAt(30, 50, watchFace.calendar)!!.id)
-            .isEqualTo(
-                LEFT_COMPLICATION_ID
-            )
+        assertThat(complicationsHolder.getComplicationAt(30, 50)!!.id)
+            .isEqualTo(LEFT_COMPLICATION_ID)
         leftComplication.enabled = false
-        assertThat(complicationSlots.getComplicationAt(30, 50, watchFace.calendar)).isNull()
+        assertThat(complicationsHolder.getComplicationAt(30, 50)).isNull()
 
-        assertThat(complicationSlots.getComplicationAt(70, 50, watchFace.calendar)!!.id)
-            .isEqualTo(
-                RIGHT_COMPLICATION_ID
-            )
-        assertThat(complicationSlots.getComplicationAt(1, 1, watchFace.calendar)).isNull()
+        assertThat(complicationsHolder.getComplicationAt(70, 50)!!.id)
+            .isEqualTo(RIGHT_COMPLICATION_ID)
+        assertThat(complicationsHolder.getComplicationAt(1, 1)).isNull()
     }
 
     @Test
     fun getBackgroundComplicationId_returnsCorrectId() {
         initEngine(WatchFaceType.ANALOG, listOf(leftComplication, rightComplication), emptyList())
-        assertThat(complicationSlots.getBackgroundComplication()).isNull()
+        assertThat(complicationsHolder.getBackgroundComplication()).isNull()
 
         initEngine(WatchFaceType.ANALOG, listOf(leftComplication), emptyList())
-        assertThat(complicationSlots.getBackgroundComplication()).isNull()
+        assertThat(complicationsHolder.getBackgroundComplication()).isNull()
 
         initEngine(
             WatchFaceType.ANALOG,
             listOf(leftComplication, backgroundComplication),
             emptyList()
         )
-        assertThat(complicationSlots.getBackgroundComplication()!!.id).isEqualTo(
+        assertThat(complicationsHolder.getBackgroundComplication()!!.id).isEqualTo(
             BACKGROUND_COMPLICATION_ID
         )
     }
@@ -739,7 +743,7 @@ class WatchFaceServiceTest {
     @Test
     fun getStoredUserStyleNotSupported_userStyle_isPersisted() {
         // The style should get persisted in a file because the API is old and
-        // {@link SystemApi#getStoredUserStyle} returns null.
+        // {@link WatchFaceHostApi#getStoredUserStyle} returns null.
         `when`(iWatchFaceService.getStoredUserStyle()).thenReturn(null)
 
         initEngine(
@@ -750,21 +754,21 @@ class WatchFaceServiceTest {
         )
 
         // This should get persisted.
-        userStyleManager.userStyle = mapOf(
+        userStyleRepository.userStyle = mapOf(
             colorStyleCategory to blueStyleOption,
             watchHandStyleCategory to gothicStyleOption
         )
 
-        val styleManager2 = UserStyleManager(
+        val userStyleRepository2 = UserStyleRepository(
             listOf(colorStyleCategory, watchHandStyleCategory)
         )
 
-        val testRenderer2 = TestRenderer(surfaceHolder, styleManager2, systemState)
+        val testRenderer2 = TestRenderer(surfaceHolder, userStyleRepository2, systemState)
         val service2 = TestWatchFaceService(
             WatchFaceType.ANALOG,
-            ComplicationSlots(emptyList()),
+            ComplicationsHolder(emptyList()),
             testRenderer2,
-            styleManager2,
+            userStyleRepository2,
             systemState,
             handler,
             INTERACTIVE_UPDATE_RATE_MS
@@ -775,10 +779,10 @@ class WatchFaceServiceTest {
         engine2.onSurfaceChanged(surfaceHolder, 0, 100, 100)
         sendBinder(engine2, apiVersion = 2)
 
-        assertThat(styleManager2.userStyle[colorStyleCategory]).isEqualTo(
+        assertThat(userStyleRepository2.userStyle[colorStyleCategory]).isEqualTo(
             blueStyleOption
         )
-        assertThat(styleManager2.userStyle[watchHandStyleCategory]).isEqualTo(
+        assertThat(userStyleRepository2.userStyle[watchHandStyleCategory]).isEqualTo(
             gothicStyleOption
         )
     }
@@ -805,21 +809,21 @@ class WatchFaceServiceTest {
         )
 
         // This should get persisted.
-        userStyleManager.userStyle = mapOf(
+        userStyleRepository.userStyle = mapOf(
             colorStyleCategory to blueStyleOption,
             watchHandStyleCategory to gothicStyleOption
         )
 
-        val styleManager2 = UserStyleManager(
+        val userStyleRepository2 = UserStyleRepository(
             listOf(colorStyleCategory, watchHandStyleCategory)
         )
 
-        val testRenderer2 = TestRenderer(surfaceHolder, styleManager2, systemState)
+        val testRenderer2 = TestRenderer(surfaceHolder, userStyleRepository2, systemState)
         val service2 = TestWatchFaceService(
             WatchFaceType.ANALOG,
-            ComplicationSlots(emptyList()),
+            ComplicationsHolder(emptyList()),
             testRenderer2,
-            styleManager2,
+            userStyleRepository2,
             systemState,
             handler,
             INTERACTIVE_UPDATE_RATE_MS
@@ -830,10 +834,10 @@ class WatchFaceServiceTest {
         engine2.onSurfaceChanged(surfaceHolder, 0, 100, 100)
         sendBinder(engine2, apiVersion = 3)
 
-        assertThat(styleManager2.userStyle[colorStyleCategory]).isEqualTo(
+        assertThat(userStyleRepository2.userStyle[colorStyleCategory]).isEqualTo(
             blueStyleOption
         )
-        assertThat(styleManager2.userStyle[watchHandStyleCategory]).isEqualTo(
+        assertThat(userStyleRepository2.userStyle[watchHandStyleCategory]).isEqualTo(
             gothicStyleOption
         )
     }
@@ -841,7 +845,8 @@ class WatchFaceServiceTest {
     @Test
     fun persistedStyleOptionMismatchIgnored() {
         `when`(iWatchFaceService.getStoredUserStyle()).thenReturn(
-            UserStyleCategory.styleMapToBundle(mapOf(watchHandStyleCategory to badStyleOption)))
+            UserStyleRepository.styleMapToBundle(mapOf(watchHandStyleCategory to badStyleOption))
+        )
 
         initEngine(
             WatchFaceType.ANALOG,
@@ -850,7 +855,7 @@ class WatchFaceServiceTest {
             3
         )
 
-        assertThat(watchFace.lastUserStyle!![watchHandStyleCategory])
+        assertThat(testWatchFaceService.lastUserStyle!![watchHandStyleCategory])
             .isEqualTo(watchHandStyleList.first())
     }
 
@@ -866,7 +871,7 @@ class WatchFaceServiceTest {
             putBoolean(Constants.STATUS_KEYGUARD_LOCKED, false)
         }
 
-        val systemStateListener = mock(SystemState.Listener::class.java)
+        val systemStateListener = mock(WatchState.Listener::class.java)
         systemState.addListener(systemStateListener)
 
         // Every indicator onXyz method should be called upon the initial update.
@@ -904,13 +909,13 @@ class WatchFaceServiceTest {
             putBoolean(Constants.PROPERTY_BURN_IN_PROTECTION, false)
         }
 
-        val systemStateListener = mock(SystemState.Listener::class.java)
+        val systemStateListener = mock(WatchState.Listener::class.java)
         systemState.addListener(systemStateListener)
 
         // Check all the right methods are called on initial onPropertiesChanged call.
         engineWrapper.onPropertiesChanged(bundle)
-        verify(systemStateListener).setHasLowBitAmbient(true)
-        verify(systemStateListener).setHasBurnInProtection(false)
+        verify(systemStateListener).onHasLowBitAmbientSet(true)
+        verify(systemStateListener).onHasBurnInProtectionSet(false)
     }
 
     @Test
@@ -1021,15 +1026,16 @@ class WatchFaceServiceTest {
 
     @Test
     fun requestStyleBeforeSetBinder() {
-        var styleManager = UserStyleManager(emptyList())
-        var testRenderer = TestRenderer(surfaceHolder, styleManager, systemState)
+        var userStyleRepository =
+            UserStyleRepository(emptyList())
+        var testRenderer = TestRenderer(surfaceHolder, userStyleRepository, systemState)
         val service = TestWatchFaceService(
             WatchFaceType.ANALOG,
-            ComplicationSlots(
+            ComplicationsHolder(
                 listOf(leftComplication, rightComplication, backgroundComplication)
             ),
             testRenderer,
-            UserStyleManager(emptyList()),
+            UserStyleRepository(emptyList()),
             systemState,
             handler,
             INTERACTIVE_UPDATE_RATE_MS
@@ -1053,17 +1059,17 @@ class WatchFaceServiceTest {
     fun defaultProvidersWithFallbacks_newApi() {
         val provider1 = ComponentName("com.app1", "com.app1.App1")
         val provider2 = ComponentName("com.app2", "com.app2.App2")
-        val complication = Complication(
+        val complication = Complication.Builder(
             LEFT_COMPLICATION_ID,
-            FixedBounds(RectF(0.2f, 0.4f, 0.4f, 0.6f)),
             ComplicationDrawableRenderer(complicationDrawableLeft, systemState),
             intArrayOf(),
             Complication.DefaultComplicationProvider(
                 listOf(provider1, provider2),
                 SystemProviders.SUNRISE_SUNSET
-            ),
-            ComplicationData.TYPE_SHORT_TEXT
-        )
+            )
+        ).setDefaultProviderType(ComplicationData.TYPE_SHORT_TEXT)
+            .setUnitSquareBounds(RectF(0.2f, 0.4f, 0.4f, 0.6f))
+            .build()
         initEngine(WatchFaceType.ANALOG, listOf(complication), emptyList())
 
         verify(iWatchFaceService).setDefaultComplicationProviderWithFallbacks(
@@ -1078,17 +1084,17 @@ class WatchFaceServiceTest {
     fun defaultProvidersWithFallbacks_oldApi() {
         val provider1 = ComponentName("com.app1", "com.app1.App1")
         val provider2 = ComponentName("com.app2", "com.app2.App2")
-        val complication = Complication(
+        val complication = Complication.Builder(
             LEFT_COMPLICATION_ID,
-            FixedBounds(RectF(0.2f, 0.4f, 0.4f, 0.6f)),
             ComplicationDrawableRenderer(complicationDrawableLeft, systemState),
             intArrayOf(),
             Complication.DefaultComplicationProvider(
                 listOf(provider1, provider2),
                 SystemProviders.SUNRISE_SUNSET
-            ),
-            ComplicationData.TYPE_SHORT_TEXT
-        )
+            )
+        ).setDefaultProviderType(ComplicationData.TYPE_SHORT_TEXT)
+            .setUnitSquareBounds(RectF(0.2f, 0.4f, 0.4f, 0.6f))
+            .build()
         initEngine(WatchFaceType.ANALOG, listOf(complication), emptyList(), apiVersion = 0)
 
         verify(iWatchFaceService).setDefaultComplicationProvider(
@@ -1112,5 +1118,42 @@ class WatchFaceServiceTest {
     fun registerIWatchFaceCommand_called() {
         initEngine(WatchFaceType.DIGITAL, emptyList(), emptyList(), apiVersion = 4)
         verify(iWatchFaceService).registerIWatchFaceCommand(any())
+    }
+
+    @Test
+    fun shouldAnimateOverrideControlsEnteringAmbientMode() {
+        var userStyleRepository = UserStyleRepository(emptyList())
+        var testRenderer = object : TestRenderer(surfaceHolder, userStyleRepository, systemState) {
+            var animate = true
+            override fun shouldAnimate() = animate
+        }
+        val service = TestWatchFaceService(
+            WatchFaceType.ANALOG,
+            ComplicationsHolder(emptyList()),
+            testRenderer,
+            UserStyleRepository(emptyList()),
+            systemState,
+            handler,
+            INTERACTIVE_UPDATE_RATE_MS
+        )
+
+        engineWrapper = service.onCreateEngine() as WatchFaceService.EngineWrapper
+        engineWrapper.onCreate(surfaceHolder)
+        `when`(surfaceHolder.surfaceFrame).thenReturn(ONE_HUNDRED_BY_ONE_HUNDRED_RECT)
+
+        // Trigger watch face creation.
+        engineWrapper.onSurfaceChanged(surfaceHolder, 0, 100, 100)
+        sendBinder(engineWrapper, apiVersion = 2)
+        watchFace = service.watchFace
+
+        // Enter ambient mode.
+        systemState.onAmbientModeChanged(true)
+        watchFace.maybeUpdateDrawMode()
+        assertThat(testRenderer.drawMode).isEqualTo(DrawMode.INTERACTIVE)
+
+        // Simulate enter ambient animation finishing.
+        testRenderer.animate = false
+        watchFace.maybeUpdateDrawMode()
+        assertThat(testRenderer.drawMode).isEqualTo(DrawMode.AMBIENT)
     }
 }

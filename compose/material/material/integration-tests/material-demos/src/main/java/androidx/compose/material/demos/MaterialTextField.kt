@@ -21,8 +21,8 @@ import androidx.compose.foundation.Icon
 import androidx.compose.foundation.ScrollableColumn
 import androidx.compose.foundation.Text
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope.gravity
-import androidx.compose.foundation.layout.InnerPadding
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -61,7 +61,7 @@ import androidx.compose.ui.unit.dp
 fun TextFieldsDemo() {
     ScrollableColumn(
         modifier = Modifier.fillMaxHeight(),
-        contentPadding = InnerPadding(10.dp)
+        contentPadding = PaddingValues(10.dp)
     ) {
         Text("Password text field")
         PasswordTextField()
@@ -84,7 +84,7 @@ fun TextFieldsDemo() {
 
 @Composable
 fun MaterialTextFieldDemo() {
-    ScrollableColumn(contentPadding = InnerPadding(10.dp)) {
+    ScrollableColumn(contentPadding = PaddingValues(10.dp)) {
         var text by savedInstanceState { "" }
         var leadingChecked by savedInstanceState { false }
         var trailingChecked by savedInstanceState { false }
@@ -123,7 +123,7 @@ fun MaterialTextFieldDemo() {
             }
         }
 
-        Box(Modifier.preferredHeight(150.dp).gravity(Alignment.CenterHorizontally)) {
+        Box(Modifier.preferredHeight(150.dp).align(Alignment.CenterHorizontally)) {
             if (selectedOption == Option.None) {
                 textField()
             } else {
@@ -223,7 +223,7 @@ private fun TextFieldWithMessage(
     }
 
     Column {
-        Box(modifier = Modifier.weight(1f), children = textField)
+        Box(modifier = Modifier.weight(1f, fill = false), children = textField)
         Text(
             text = "Helper message",
             style = typography.copy(color = color),
@@ -233,11 +233,11 @@ private fun TextFieldWithMessage(
 }
 
 @Composable
-private fun Title(title: String) {
+private fun ColumnScope.Title(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.body1,
-        modifier = Modifier.gravity(Alignment.CenterHorizontally)
+        modifier = Modifier.align(Alignment.CenterHorizontally)
     )
     Spacer(Modifier.preferredHeight(10.dp))
 }

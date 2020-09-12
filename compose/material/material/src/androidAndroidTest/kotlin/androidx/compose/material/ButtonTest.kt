@@ -21,7 +21,7 @@ import androidx.compose.foundation.Text
 import androidx.compose.foundation.contentColor
 import androidx.compose.foundation.currentTextStyle
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.InnerPadding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Stack
@@ -68,11 +68,9 @@ import androidx.ui.test.assertWidthIsEqualTo
 import androidx.ui.test.captureToBitmap
 import androidx.ui.test.createComposeRule
 import androidx.ui.test.hasClickAction
-import androidx.ui.test.onNode
 import androidx.ui.test.onNodeWithTag
 import androidx.ui.test.onNodeWithText
 import androidx.ui.test.performClick
-import androidx.ui.test.runOnIdle
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
 import org.junit.Test
@@ -85,11 +83,11 @@ import kotlin.math.abs
 class ButtonTest {
 
     @get:Rule
-    val composeTestRule = createComposeRule()
+    val rule = createComposeRule()
 
     @Test
     fun defaultSemantics() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Stack {
                 Button(modifier = Modifier.testTag("myButton"), onClick = {}) {
                     Text("myButton")
@@ -97,13 +95,13 @@ class ButtonTest {
             }
         }
 
-        onNodeWithTag("myButton")
+        rule.onNodeWithTag("myButton")
             .assertIsEnabled()
     }
 
     @Test
     fun disabledSemantics() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Stack {
                 Button(modifier = Modifier.testTag("myButton"), onClick = {}, enabled = false) {
                     Text("myButton")
@@ -111,7 +109,7 @@ class ButtonTest {
             }
         }
 
-        onNodeWithTag("myButton")
+        rule.onNodeWithTag("myButton")
             .assertIsNotEnabled()
     }
 
@@ -121,7 +119,7 @@ class ButtonTest {
         val onClick: () -> Unit = { ++counter }
         val text = "myButton"
 
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Stack {
                 Button(onClick = onClick) {
                     Text(text)
@@ -131,10 +129,10 @@ class ButtonTest {
 
         // TODO(b/129400818): this actually finds the text, not the button as
         // merge semantics aren't implemented yet
-        onNodeWithText(text)
+        rule.onNodeWithText(text)
             .performClick()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(counter).isEqualTo(1)
         }
     }
@@ -144,7 +142,7 @@ class ButtonTest {
     fun canBeDisabled() {
         val tag = "myButton"
 
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             var enabled by remember { mutableStateOf(true) }
             val onClick = { enabled = false }
             Stack {
@@ -153,7 +151,7 @@ class ButtonTest {
                 }
             }
         }
-        onNodeWithTag(tag)
+        rule.onNodeWithTag(tag)
             // Confirm the button starts off enabled, with a click action
             .assertHasClickAction()
             .assertIsEnabled()
@@ -175,7 +173,7 @@ class ButtonTest {
 
         val text = "myButton"
 
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Column {
                 Button(modifier = Modifier.testTag(button1Tag), onClick = button1OnClick) {
                     Text(text)
@@ -186,18 +184,18 @@ class ButtonTest {
             }
         }
 
-        onNodeWithTag(button1Tag)
+        rule.onNodeWithTag(button1Tag)
             .performClick()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(button1Counter).isEqualTo(1)
             assertThat(button2Counter).isEqualTo(0)
         }
 
-        onNodeWithTag(button2Tag)
+        rule.onNodeWithTag(button2Tag)
             .performClick()
 
-        runOnIdle {
+        rule.runOnIdle {
             assertThat(button1Counter).isEqualTo(1)
             assertThat(button2Counter).isEqualTo(1)
         }
@@ -205,24 +203,24 @@ class ButtonTest {
 
     @Test
     fun buttonHeightIsFromSpec() {
-        if (composeTestRule.density.fontScale > 1f) {
+        if (rule.density.fontScale > 1f) {
             // This test can be reasonable failing on the non default font scales
             // so lets skip it.
             return
         }
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Button(onClick = {}) {
                 Text("Test button")
             }
         }
 
-        onNode(hasClickAction())
+        rule.onNode(hasClickAction())
             .assertHeightIsEqualTo(36.dp)
     }
 
     @Test
     fun ButtonWithLargeFontSizeIsLargerThenMinHeight() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Button(onClick = {}) {
                 Text(
                     text = "Test button",
@@ -231,13 +229,13 @@ class ButtonTest {
             }
         }
 
-        onNode(hasClickAction())
+        rule.onNode(hasClickAction())
             .assertHeightIsAtLeast(37.dp)
     }
 
     @Test
     fun containedButtonPropagateDefaultTextStyle() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Button(onClick = {}) {
                 assertThat(currentTextStyle()).isEqualTo(MaterialTheme.typography.button)
             }
@@ -246,7 +244,7 @@ class ButtonTest {
 
     @Test
     fun outlinedButtonPropagateDefaultTextStyle() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             OutlinedButton(onClick = {}) {
                 assertThat(currentTextStyle()).isEqualTo(MaterialTheme.typography.button)
             }
@@ -255,7 +253,7 @@ class ButtonTest {
 
     @Test
     fun textButtonPropagateDefaultTextStyle() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             TextButton(onClick = {}) {
                 assertThat(currentTextStyle()).isEqualTo(MaterialTheme.typography.button)
             }
@@ -289,7 +287,7 @@ class ButtonTest {
         val shape = CutCornerShape(10.dp)
         var surface = Color.Transparent
         var primary = Color.Transparent
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             surface = MaterialTheme.colors.surface
             primary = MaterialTheme.colors.primary
             Providers(ShapesAmbient provides Shapes(small = shape)) {
@@ -299,14 +297,14 @@ class ButtonTest {
             }
         }
 
-        onNodeWithTag("myButton")
+        rule.onNodeWithTag("myButton")
             .captureToBitmap()
             .assertShape(
-                density = composeTestRule.density,
+                density = rule.density,
                 shape = shape,
                 shapeColor = primary,
                 backgroundColor = surface,
-                shapeOverlapPixelCount = with(composeTestRule.density) { 1.dp.toPx() }
+                shapeOverlapPixelCount = with(rule.density) { 1.dp.toPx() }
             )
     }
 
@@ -314,7 +312,7 @@ class ButtonTest {
     fun buttonContentColorIsCorrect() {
         var onPrimary = Color.Transparent
         var content = Color.Transparent
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             onPrimary = MaterialTheme.colors.onPrimary
             Button(onClick = {}) {
                 content = contentColor()
@@ -328,7 +326,7 @@ class ButtonTest {
     fun outlinedButtonContentColorIsCorrect() {
         var primary = Color.Transparent
         var content = Color.Transparent
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             primary = MaterialTheme.colors.primary
             OutlinedButton(onClick = {}) {
                 content = contentColor()
@@ -342,7 +340,7 @@ class ButtonTest {
     fun textButtonContentColorIsCorrect() {
         var primary = Color.Transparent
         var content = Color.Transparent
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             primary = MaterialTheme.colors.primary
             TextButton(onClick = {}) {
                 content = contentColor()
@@ -358,7 +356,7 @@ class ButtonTest {
         var surface = Color.Transparent
         var onSurface = Color.Transparent
         val padding = 8.dp
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             surface = MaterialTheme.colors.surface
             onSurface = MaterialTheme.colors.onSurface
             Box(Modifier.testTag("myButton")) {
@@ -373,10 +371,10 @@ class ButtonTest {
             }
         }
 
-        onNodeWithTag("myButton")
+        rule.onNodeWithTag("myButton")
             .captureToBitmap()
             .assertShape(
-                density = composeTestRule.density,
+                density = rule.density,
                 horizontalPadding = padding,
                 verticalPadding = padding,
                 backgroundColor = surface,
@@ -390,7 +388,7 @@ class ButtonTest {
         var surface = Color.Transparent
         var onSurface = Color.Transparent
         val padding = 8.dp
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             surface = MaterialTheme.colors.surface
             onSurface = MaterialTheme.colors.onSurface
             Box(Modifier.testTag("myButton")) {
@@ -399,17 +397,20 @@ class ButtonTest {
                     Button(
                         onClick = {},
                         enabled = false,
-                        backgroundColor = Color.Red,
+                        backgroundColor = ButtonConstants.defaultButtonBackgroundColor(
+                            enabled = false,
+                            defaultColor = Color.Red
+                        ),
                         shape = RectangleShape
                     ) {}
                 }
             }
         }
 
-        onNodeWithTag("myButton")
+        rule.onNodeWithTag("myButton")
             .captureToBitmap()
             .assertShape(
-                density = composeTestRule.density,
+                density = rule.density,
                 horizontalPadding = padding,
                 verticalPadding = padding,
                 backgroundColor = surface,
@@ -422,7 +423,7 @@ class ButtonTest {
     fun outlinedButtonDisabledBackgroundIsCorrect() {
         var surface = Color.Transparent
         val padding = 8.dp
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             surface = MaterialTheme.colors.surface
             // stack allows to verify there is no shadow
             Stack(Modifier.padding(padding)) {
@@ -436,10 +437,10 @@ class ButtonTest {
             }
         }
 
-        onNodeWithTag("myButton")
+        rule.onNodeWithTag("myButton")
             .captureToBitmap()
             .assertShape(
-                density = composeTestRule.density,
+                density = rule.density,
                 shape = RectangleShape,
                 shapeColor = surface,
                 backgroundColor = surface
@@ -450,7 +451,7 @@ class ButtonTest {
     @Test
     fun textButtonDisabledBackgroundIsCorrect() {
         var surface = Color.Transparent
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             surface = MaterialTheme.colors.surface
             // stack allows to verify there is no shadow
             Stack(Modifier.padding(8.dp)) {
@@ -463,10 +464,10 @@ class ButtonTest {
             }
         }
 
-        onNodeWithTag("myButton")
+        rule.onNodeWithTag("myButton")
             .captureToBitmap()
             .assertShape(
-                density = composeTestRule.density,
+                density = rule.density,
                 shape = RectangleShape,
                 shapeColor = surface,
                 backgroundColor = surface
@@ -478,7 +479,7 @@ class ButtonTest {
         var onSurface = Color.Transparent
         var content = Color.Transparent
         var emphasis: Emphasis? = null
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             onSurface = MaterialTheme.colors.onSurface
             emphasis = EmphasisAmbient.current.disabled
             Button(onClick = {}, enabled = false) {
@@ -494,7 +495,7 @@ class ButtonTest {
         var onSurface = Color.Transparent
         var content = Color.Transparent
         var emphasis: Emphasis? = null
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             onSurface = MaterialTheme.colors.onSurface
             emphasis = EmphasisAmbient.current.disabled
             OutlinedButton(onClick = {}, enabled = false) {
@@ -510,7 +511,7 @@ class ButtonTest {
         var onSurface = Color.Transparent
         var content = Color.Transparent
         var emphasis: Emphasis? = null
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             onSurface = MaterialTheme.colors.onSurface
             emphasis = EmphasisAmbient.current.disabled
             TextButton(onClick = {}, enabled = false) {
@@ -525,7 +526,7 @@ class ButtonTest {
     fun contentIsWrappedAndCentered() {
         var buttonCoordinates: LayoutCoordinates? = null
         var contentCoordinates: LayoutCoordinates? = null
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Stack {
                 Button({}, Modifier.onPositioned { buttonCoordinates = it }) {
                     Box(
@@ -536,12 +537,12 @@ class ButtonTest {
             }
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             val buttonBounds = buttonCoordinates!!.boundsInRoot
             val contentBounds = contentCoordinates!!.boundsInRoot
             assertThat(contentBounds.width).isLessThan(buttonBounds.width)
             assertThat(contentBounds.height).isLessThan(buttonBounds.height)
-            with(composeTestRule.density) {
+            with(rule.density) {
                 assertThat(contentBounds.width).isEqualTo(2.dp.toIntPx().toFloat())
                 assertThat(contentBounds.height).isEqualTo(2.dp.toIntPx().toFloat())
             }
@@ -552,7 +553,7 @@ class ButtonTest {
     @SdkSuppress(minSdkVersion = Build.VERSION_CODES.O)
     @Test
     fun zOrderingBasedOnElevationIsApplied() {
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Stack(
                 Modifier.semantics(mergeAllDescendants = true) {}
                     .testTag("stack")
@@ -577,10 +578,10 @@ class ButtonTest {
             }
         }
 
-        onNodeWithTag("stack")
+        rule.onNodeWithTag("stack")
             .captureToBitmap()
             .assertShape(
-                density = composeTestRule.density,
+                density = rule.density,
                 shape = RectangleShape,
                 shapeColor = Color.Yellow,
                 backgroundColor = Color.White
@@ -589,14 +590,17 @@ class ButtonTest {
 
     @Test
     fun minHeightAndMinWidthCanBeOverridden() {
-        composeTestRule.setMaterialContent {
-            Button(onClick = {}, contentPadding = InnerPadding(), modifier = Modifier.widthIn(20.dp)
-                .heightIn(15.dp).testTag("button")) {
+        rule.setMaterialContent {
+            Button(
+                onClick = {},
+                contentPadding = PaddingValues(),
+                modifier = Modifier.widthIn(20.dp).heightIn(15.dp).testTag("button")
+            ) {
                 Spacer(Modifier.size(10.dp))
             }
         }
 
-        onNodeWithTag("button")
+        rule.onNodeWithTag("button")
             .assertWidthIsEqualTo(20.dp)
             .assertHeightIsEqualTo(15.dp)
     }
@@ -605,7 +609,7 @@ class ButtonTest {
     fun weightModifierOnButton() {
         var item1Bounds = Rect(0f, 0f, 0f, 0f)
         var buttonBounds = Rect(0f, 0f, 0f, 0f)
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Column {
                 Spacer(Modifier.size(10.dp).weight(1f).onPositioned {
                     item1Bounds = it.boundsInRoot
@@ -630,7 +634,7 @@ class ButtonTest {
         var buttonBounds = Rect(0f, 0f, 0f, 0f)
         var item1Bounds = Rect(0f, 0f, 0f, 0f)
         var item2Bounds = Rect(0f, 0f, 0f, 0f)
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Button(onClick = {}, modifier = Modifier.onPositioned {
                 buttonBounds = it.boundsInRoot
             }) {
@@ -655,7 +659,7 @@ class ButtonTest {
     ) {
         var parentCoordinates: LayoutCoordinates? = null
         var childCoordinates: LayoutCoordinates? = null
-        composeTestRule.setMaterialContent {
+        rule.setMaterialContent {
             Stack {
                 button(Modifier.onPositioned { parentCoordinates = it }) {
                     Text("Test button",
@@ -665,10 +669,10 @@ class ButtonTest {
             }
         }
 
-        runOnIdle {
+        rule.runOnIdle {
             val topLeft = childCoordinates!!.localToGlobal(Offset.Zero).x -
                     parentCoordinates!!.localToGlobal(Offset.Zero).x
-            val currentPadding = with(composeTestRule.density) {
+            val currentPadding = with(rule.density) {
                 padding.toIntPx().toFloat()
             }
             assertThat(currentPadding).isEqualTo(topLeft)

@@ -33,6 +33,7 @@ sealed class VectorNode {
     class Path(
         val strokeAlpha: Float,
         val fillAlpha: Float,
+        val fillType: FillType,
         val nodes: List<PathNode>
     ) : VectorNode()
 }

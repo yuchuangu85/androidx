@@ -23,6 +23,7 @@ import androidx.annotation.GuardedBy
 import androidx.camera.camera2.pipe.CameraId
 import androidx.camera.camera2.pipe.CameraMetadata
 import kotlinx.coroutines.withContext
+import java.lang.IllegalStateException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -72,11 +73,31 @@ class CameraMetadataCache @Inject constructor(
     }
 
     private fun createCameraMetadata(cameraId: CameraId, redacted: Boolean): CameraMetadataImpl {
-        val cameraManager =
-            context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
-        val characteristics =
-            cameraManager.getCameraCharacteristics(cameraId.value)
-        return CameraMetadataImpl(cameraId, redacted, characteristics, emptyMap())
+        val start = Metrics.monotonicNanos()
+
+        return Debug.trace("CameraCharacteristics_$cameraId") {
+            try {
+                val cameraManager =
+                    context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
+                val characteristics =
+                    cameraManager.getCameraCharacteristics(cameraId.value)
+                val cameraMetadata =
+                    CameraMetadataImpl(cameraId, redacted, characteristics, emptyMap())
+
+                Log.info {
+                    val duration = Metrics.nanosToMillisDouble(Metrics.monotonicNanos() - start)
+                    val redactedString = when (redacted) {
+                        false -> ""
+                        true -> " (redacted)"
+                    }
+                    "Loaded metadata for $cameraId in ${duration.formatMilliTime()}$redactedString"
+                }
+
+                return@trace cameraMetadata
+            } catch (e: Throwable) {
+                throw IllegalStateException("Failed to load metadata for $cameraId", e)
+            }
+        }
     }
 
     private fun isMetadataRedacted(): Boolean = !permissions.hasCameraPermission

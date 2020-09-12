@@ -21,6 +21,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.graphics.SurfaceTexture
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -29,9 +30,10 @@ import android.support.wearable.complications.ComplicationText
 import android.support.wearable.watchface.Constants
 import android.support.wearable.watchface.IWatchFaceCommand
 import android.support.wearable.watchface.IWatchFaceService
-import android.support.wearable.watchface.SharedMemoryImage
+import android.support.wearable.watchface.ashmemCompressedImageBundleToBitmap
 import android.support.wearable.watchface.WatchFaceStyle
 import android.support.wearable.watchface.accessibility.ContentDescriptionLabel
+import android.view.Surface
 import android.view.SurfaceHolder
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -39,12 +41,11 @@ import androidx.test.filters.MediumTest
 import androidx.test.screenshot.AndroidXScreenshotTestRule
 import androidx.test.screenshot.assertAgainstGolden
 import androidx.wear.complications.SystemProviders
-import androidx.wear.watchface.ComplicationSlotType
+import androidx.wear.watchface.ComplicationBoundsType
 import androidx.wear.watchface.DrawMode
 import androidx.wear.watchface.WatchFaceService
 import androidx.wear.watchface.samples.EXAMPLE_CANVAS_WATCHFACE_LEFT_COMPLICATION_ID
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -57,6 +58,7 @@ import java.util.concurrent.TimeUnit
 private const val API_VERSION = 3
 private const val BITMAP_WIDTH = 400
 private const val BITMAP_HEIGHT = 400
+private const val TIMEOUT_MS = 800L
 
 private class WatchFaceServiceStub(
     private val apiVersion: Int,
@@ -74,7 +76,7 @@ private class WatchFaceServiceStub(
     override fun setActiveComplications(ids: IntArray, updateAll: Boolean) {
     }
 
-    override fun setComplicationDetails(id: Int, bounds: Rect?, @ComplicationSlotType slot: Int) {
+    override fun setComplicationDetails(id: Int, bounds: Rect?, @ComplicationBoundsType type: Int) {
     }
 
     override fun setDefaultComplicationProvider(
@@ -91,8 +93,11 @@ private class WatchFaceServiceStub(
     ) {
     }
 
-    override fun registerIWatchFaceCommand(iWatchFaceCommand: IWatchFaceCommand?) {
-        this.iWatchFaceCommand = iWatchFaceCommand
+    override fun registerIWatchFaceCommand(iWatchFaceCommandBundle: Bundle?) {
+        this.iWatchFaceCommand = IWatchFaceCommand.Stub.asInterface(
+            iWatchFaceCommandBundle
+                ?.getBinder(Constants.EXTRA_WATCH_FACE_COMMAND_BINDER)
+        )
     }
 
     override fun setContentDescriptionLabels(labels: Array<ContentDescriptionLabel>) {
@@ -170,7 +175,10 @@ class WatchFaceServiceImageTest {
     private val canvas = Canvas(bitmap)
     private val renderDoneLatch = CountDownLatch(1)
 
-    private lateinit var watchFaceService: TestWatchFaceService
+    private val surfaceTexture = SurfaceTexture(false)
+
+    private lateinit var canvasWatchFaceService: TestCanvasWatchFaceService
+    private lateinit var gles2WatchFaceService: TestGles2WatchFaceService
     private lateinit var engineWrapper: WatchFaceService.EngineWrapper
 
     @Before
@@ -178,13 +186,13 @@ class WatchFaceServiceImageTest {
         MockitoAnnotations.initMocks(this)
     }
 
-    private fun initWatchFace() {
-        watchFaceService = TestWatchFaceService(
+    private fun initCanvasWatchFace() {
+        canvasWatchFaceService = TestCanvasWatchFaceService(
             ApplicationProvider.getApplicationContext<Context>(),
             handler,
             100000
         )
-        engineWrapper = watchFaceService.onCreateEngine() as WatchFaceService.EngineWrapper
+        engineWrapper = canvasWatchFaceService.onCreateEngine() as WatchFaceService.EngineWrapper
 
         Mockito.`when`(surfaceHolder.surfaceFrame)
             .thenReturn(Rect(0, 0, BITMAP_WIDTH, BITMAP_HEIGHT))
@@ -194,6 +202,28 @@ class WatchFaceServiceImageTest {
             renderDoneLatch.countDown()
         }
 
+        setBinder()
+    }
+
+    private fun initGles2WatchFace() {
+        gles2WatchFaceService = TestGles2WatchFaceService(
+            ApplicationProvider.getApplicationContext<Context>(),
+            handler,
+            100000
+        )
+        engineWrapper = gles2WatchFaceService.onCreateEngine() as WatchFaceService.EngineWrapper
+
+        surfaceTexture.setDefaultBufferSize(BITMAP_WIDTH, BITMAP_HEIGHT)
+
+        Mockito.`when`(surfaceHolder.surfaceFrame)
+            .thenReturn(Rect(0, 0, BITMAP_WIDTH, BITMAP_HEIGHT))
+        engineWrapper.onSurfaceChanged(surfaceHolder, 0, BITMAP_WIDTH, BITMAP_HEIGHT)
+
+        Mockito.`when`(surfaceHolder.surface).thenReturn(Surface(surfaceTexture))
+        setBinder()
+    }
+
+    private fun setBinder() {
         watchFaceServiceStub = WatchFaceServiceStub(
             API_VERSION,
             engineWrapper,
@@ -227,45 +257,44 @@ class WatchFaceServiceImageTest {
     @Test
     fun testActiveScreenshot() {
         handler.post {
-            initWatchFace()
+            initCanvasWatchFace()
             engineWrapper.draw()
         }
 
-        renderDoneLatch.await(200, TimeUnit.MILLISECONDS)
+        renderDoneLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)
         bitmap.assertAgainstGolden(screenshotRule, "active_screenshot")
     }
 
     @Test
-    @Ignore("Needs fixed image")
     fun testAmbientScreenshot() {
         handler.post {
-            initWatchFace()
+            initCanvasWatchFace()
             setAmbient(true)
             engineWrapper.draw()
         }
 
-        renderDoneLatch.await(200, TimeUnit.MILLISECONDS)
-        bitmap.assertAgainstGolden(screenshotRule, "ambient_screenshot")
+        renderDoneLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        bitmap.assertAgainstGolden(screenshotRule, "ambient_screenshot2")
     }
 
     @Test
     fun testCommandTakeScreenShot() {
         val latch = CountDownLatch(1)
 
-        handler.post(this::initWatchFace)
+        handler.post(this::initCanvasWatchFace)
         var bitmap: Bitmap? = null
         handler.post {
-            bitmap = SharedMemoryImage.ashmemCompressedImageBundleToBitmap(
-                watchFaceServiceStub.iWatchFaceCommand!!.takeWatchfaceScreenshot(
-                    DrawMode.AMBIENT,
-                    100,
-                    123456789
-                )
+            bitmap = watchFaceServiceStub.iWatchFaceCommand!!.takeWatchfaceScreenshot(
+                DrawMode.AMBIENT,
+                100,
+                123456789
+            ).ashmemCompressedImageBundleToBitmap(
+
             )
             latch.countDown()
         }
 
-        latch.await(200, TimeUnit.MILLISECONDS)
+        latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)
         bitmap!!.assertAgainstGolden(
             screenshotRule,
             "ambient_screenshot"
@@ -276,22 +305,22 @@ class WatchFaceServiceImageTest {
     fun testCommandTakeComplicationScreenShot() {
         val latch = CountDownLatch(1)
 
-        handler.post(this::initWatchFace)
+        handler.post(this::initCanvasWatchFace)
         var bitmap: Bitmap? = null
         handler.post {
-            bitmap = SharedMemoryImage.ashmemCompressedImageBundleToBitmap(
-                watchFaceServiceStub.iWatchFaceCommand!!.takeComplicationScreenshot(
-                    EXAMPLE_CANVAS_WATCHFACE_LEFT_COMPLICATION_ID,
-                    DrawMode.AMBIENT,
-                    100,
-                    123456789,
-                    null
-                )
+            bitmap = watchFaceServiceStub.iWatchFaceCommand!!.takeComplicationScreenshot(
+                EXAMPLE_CANVAS_WATCHFACE_LEFT_COMPLICATION_ID,
+                DrawMode.AMBIENT,
+                100,
+                123456789,
+                null
+            ).ashmemCompressedImageBundleToBitmap(
+
             )
             latch.countDown()
         }
 
-        latch.await(200, TimeUnit.MILLISECONDS)
+        latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)
         bitmap!!.assertAgainstGolden(
             screenshotRule,
             "leftComplication"
@@ -299,28 +328,50 @@ class WatchFaceServiceImageTest {
     }
 
     @Test
+    fun testCommandTakeOpenGLScreenShot() {
+        val latch = CountDownLatch(1)
+
+        handler.post(this::initGles2WatchFace)
+        var bitmap: Bitmap? = null
+        handler.post {
+            bitmap = watchFaceServiceStub.iWatchFaceCommand!!.takeWatchfaceScreenshot(
+                DrawMode.INTERACTIVE,
+                100,
+                123456789
+            ).ashmemCompressedImageBundleToBitmap()!!
+            latch.countDown()
+        }
+
+        latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        bitmap!!.assertAgainstGolden(
+            screenshotRule,
+            "ambient_gl_screenshot"
+        )
+    }
+
+    @Test
     fun testCommandTakeComplicationScreenShotWithAndWithoutComplicationData() {
         val latch = CountDownLatch(1)
 
-        handler.post(this::initWatchFace)
+        handler.post(this::initCanvasWatchFace)
         var bitmap: Bitmap? = null
         handler.post {
-            bitmap = SharedMemoryImage.ashmemCompressedImageBundleToBitmap(
-                watchFaceServiceStub.iWatchFaceCommand!!.takeComplicationScreenshot(
-                    EXAMPLE_CANVAS_WATCHFACE_LEFT_COMPLICATION_ID,
-                    DrawMode.INTERACTIVE,
-                    100,
-                    123456789,
-                    ComplicationData.Builder(ComplicationData.TYPE_SHORT_TEXT)
-                        .setShortTitle(ComplicationText.plainText("Title"))
-                        .setShortText(ComplicationText.plainText("Text"))
-                        .build()
-                )
+            bitmap = watchFaceServiceStub.iWatchFaceCommand!!.takeComplicationScreenshot(
+                EXAMPLE_CANVAS_WATCHFACE_LEFT_COMPLICATION_ID,
+                DrawMode.INTERACTIVE,
+                100,
+                123456789,
+                ComplicationData.Builder(ComplicationData.TYPE_SHORT_TEXT)
+                    .setShortTitle(ComplicationText.plainText("Title"))
+                    .setShortText(ComplicationText.plainText("Text"))
+                    .build()
+            ).ashmemCompressedImageBundleToBitmap(
+
             )
             latch.countDown()
         }
 
-        latch.await(200, TimeUnit.MILLISECONDS)
+        latch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)
         bitmap!!.assertAgainstGolden(
             screenshotRule,
             "leftComplicationOverride"
@@ -329,22 +380,20 @@ class WatchFaceServiceImageTest {
         // Rendering again with complicationData = null should result in a different image.
         val latch2 = CountDownLatch(1)
 
-        handler.post(this::initWatchFace)
+        handler.post(this::initCanvasWatchFace)
         var bitmap2: Bitmap? = null
         handler.post {
-            bitmap2 = SharedMemoryImage.ashmemCompressedImageBundleToBitmap(
-                watchFaceServiceStub.iWatchFaceCommand!!.takeComplicationScreenshot(
-                    EXAMPLE_CANVAS_WATCHFACE_LEFT_COMPLICATION_ID,
-                    DrawMode.INTERACTIVE,
-                    100,
-                    123456789,
-                    null
-                )
-            )
+            bitmap2 = watchFaceServiceStub.iWatchFaceCommand!!.takeComplicationScreenshot(
+                EXAMPLE_CANVAS_WATCHFACE_LEFT_COMPLICATION_ID,
+                DrawMode.INTERACTIVE,
+                100,
+                123456789,
+                null
+            ).ashmemCompressedImageBundleToBitmap()
             latch2.countDown()
         }
 
-        latch2.await(200, TimeUnit.MILLISECONDS)
+        latch2.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)
         bitmap2!!.assertAgainstGolden(
             screenshotRule,
             "leftComplication"
@@ -354,7 +403,7 @@ class WatchFaceServiceImageTest {
     @Test
     fun testSetGreenStyle() {
         handler.post {
-            initWatchFace()
+            initCanvasWatchFace()
             engineWrapper.onCommand(
                 Constants.COMMAND_SET_USER_STYLE,
                 0,
@@ -368,7 +417,7 @@ class WatchFaceServiceImageTest {
             engineWrapper.draw()
         }
 
-        renderDoneLatch.await(200, TimeUnit.MILLISECONDS)
+        renderDoneLatch.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)
         bitmap.assertAgainstGolden(screenshotRule, "green_screenshot")
     }
 }
